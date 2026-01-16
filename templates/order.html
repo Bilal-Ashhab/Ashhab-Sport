@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Order</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="panel">
+        <div class="row" style="justify-content:space-between;align-items:flex-start">
+          <div>
+            <h2 style="margin:0">Order <span id="oId"></span></h2>
+            <div class="small" style="margin-top:6px;line-height:1.6">
+              Customer: <strong id="oCustomer"></strong><br/>
+              Date: <strong id="oDate"></strong><br/>
+              Status: <strong id="oStatus"></strong><br/>
+              Total: <strong id="oTotal"></strong>
+            </div>
+          </div>
+          <div id="orderActions" class="row"></div>
+        </div>
+
+        <h2 style="margin:16px 0 10px">Items</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Price</th>
+              <th>Qty</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+  import { initOrder } from "{{ url_for('static', filename='js/order.js') }}";
+  initOrder();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Store</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="hero">
+    <div class="container">
+      <div class="heroWrap">
+        <div class="heroBg"></div>
+        <div class="heroContent">
+          <div>
+            <h1>Ashhab Sport</h1>
+            <p>Browse as a guest, or login as a customer to place orders. Employees accept orders. Admin manages employees and stock.</p>
+
+            <div class="searchRow">
+              <div class="search" title="Search by name, category, or description">
+                <span style="opacity:.8">🔎</span>
+                <input id="searchInput" placeholder="Search shoes, jackets, jeans..." />
+              </div>
+              <div class="select">
+                <select id="categorySelect"></select>
+              </div>
+            </div>
+
+            <div id="categories" class="chips" style="margin-top:14px">
+              <div id="categoryChips" class="chips"></div>
+            </div>
+          </div>
+
+          <div class="heroCard">
+            <div class="pill" style="justify-content:center;width:100%">
+              <strong>Demo Accounts</strong>
+            </div>
+            <div class="small" style="margin-top:10px;line-height:1.55">
+              Admin: <strong>admin</strong> / <strong>admin123</strong><br/>
+              Employee: <strong>staff1</strong> / <strong>staff123</strong><br/>
+              Customer: <strong>demo@demo.com</strong> / <strong>demo123</strong>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+              <a class="btn" href="login.html">Login</a>
+              <a class="btn primary" href="signup.html">Sign up</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>Products</h2>
+      <div class="muted">Click any product to view details, choose size/color, and add to cart.</div>
+      <div class="grid" id="productsGrid" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <section class="section" id="recommended">
+    <div class="container">
+      <h2>Recommended</h2>
+      <div class="muted">Featured picks from the store.</div>
+      <div class="grid" id="recommendedGrid" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <section class="section" id="contact">
+    <div class="container">
+      <div class="split">
+        <div class="panel">
+          <h2 style="margin-top:0">Contact</h2>
+          <div class="small" style="line-height:1.65">
+            Phone: <strong>+970 59X XXX XXX</strong><br/>
+            Address: <strong>Ramallah, Palestine</strong><br/>
+            Instagram: <strong>@ashhab_sport</strong><br/>
+            Email: <strong>contact@ashhab-sport.com</strong>
+          </div>
+        </div>
+        <div class="panel">
+          <h2 style="margin-top:0">How it works</h2>
+          <div class="small" style="line-height:1.65">
+            • Guests can browse products and search.<br/>
+            • Customers can add to cart and place orders.<br/>
+            • Employees accept orders and mark them shipped/cancelled.<br/>
+            • Admin can add employees and update stock.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <noscript>
+    <div class="container"><div class="panel">This website needs JavaScript enabled.</div></div>
+  </noscript>
+
+  <script type="module">
+  import { initMain } from "{{ url_for('static', filename='js/main.js') }}";
+  initMain();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Customer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <h2 style="margin:0">Customer Dashboard</h2>
+      <div class="muted">Welcome, <span id="who"></span></div>
+
+      <div class="split" style="margin-top:14px">
+        <div class="panel">
+          <h2 style="margin-top:0">My cart</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Variant</th>
+                <th>Price</th>
+                <th>Qty</th>
+                <th>Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cartBody"></tbody>
+          </table>
+          <div class="row" style="justify-content:space-between;margin-top:12px">
+            <div class="pill">Cart total: <strong id="cartTotal"></strong></div>
+            <button class="btn primary" id="btnCheckout">Place order</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2 style="margin-top:0">My orders</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+          <div class="small" style="margin-top:10px;line-height:1.6">
+            Orders start as <strong>Pending</strong> until an employee accepts them.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+  import { initCustomer } from "{{ url_for('static', filename='js/customer.js') }}";
+  initCustomer();
+</script>
+
+</body>
+</html>

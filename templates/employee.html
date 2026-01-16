@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Employee</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <h2 style="margin:0">Employee Dashboard</h2>
+      <div class="muted">Hello, <span id="who"></span></div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2 style="margin-top:0">Pending Orders</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Date</th>
+              <th>Total</th>
+              <th>Items</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pendingBody"></tbody>
+        </table>
+        <div class="small" style="margin-top:10px;line-height:1.6">
+          Accepting an order will deduct stock from the variants.
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2 style="margin-top:0">My Orders</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Status</th>
+              <th>Total</th>
+              <th>Items</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="mineBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+  import { initEmployee } from "{{ url_for('static', filename='js/employee.js') }}";
+  initEmployee();
+</script>
+
+</body>
+</html>

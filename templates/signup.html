@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Sign up</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="panel" style="max-width:820px;margin:0 auto">
+        <h2 style="margin-top:0">Customer Sign up</h2>
+        <div class="muted">Create an account to place orders.</div>
+
+        <form id="signupForm" class="form" style="margin-top:12px">
+          <div class="split">
+            <div class="field">
+              <label>First name</label>
+              <input id="firstName" placeholder="First name" />
+            </div>
+            <div class="field">
+              <label>Last name</label>
+              <input id="lastName" placeholder="Last name" />
+            </div>
+          </div>
+
+          <div class="split">
+            <div class="field">
+              <label>Email</label>
+              <input id="email" type="email" placeholder="you@email.com" />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input id="password" type="password" placeholder="Create password" />
+            </div>
+          </div>
+
+          <div class="split">
+            <div class="field">
+              <label>Phone (optional)</label>
+              <input id="phone" placeholder="059X..." />
+            </div>
+            <div class="field">
+              <label>Address (optional)</label>
+              <input id="address" placeholder="City, street..." />
+            </div>
+          </div>
+
+          <div class="row">
+            <button class="btn primary" type="submit">Create account</button>
+            <a class="btn" href="login.html">I already have an account</a>
+            <a class="btn ghost" href="main.html">Back to store</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+  import { initSignup } from "{{ url_for('static', filename='js/auth.js') }}";
+  initSignup();
+</script>
+
+</body>
+</html>

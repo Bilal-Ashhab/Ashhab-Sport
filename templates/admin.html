@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Admin Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div>
+          <h2 style="margin:0">Admin Dashboard</h2>
+          <div class="muted">Hello, <span id="who"></span></div>
+        </div>
+        <div class="row" style="gap:10px">
+          <a class="btn" href="admin-employees.html">Manage Employees</a>
+          <a class="btn" href="admin-products.html">Manage Products</a>
+          <a class="btn" href="admin-stock.html">Manage Stock</a>
+          <a class="btn" href="admin-orders.html">View Orders</a>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-bottom:20px">
+        <div class="panel">
+          <div class="small" style="opacity:0.7">Total Sales</div>
+          <h1 style="margin:8px 0;color:var(--ok)" id="totalSales">₪0</h1>
+          <div class="small">From all orders</div>
+        </div>
+
+        <div class="panel">
+          <div class="small" style="opacity:0.7">Total Purchases</div>
+          <h1 style="margin:8px 0;color:var(--brand)" id="totalPurchases">₪0</h1>
+          <div class="small">From suppliers</div>
+        </div>
+
+        <div class="panel">
+          <div class="small" style="opacity:0.7">Net Earnings</div>
+          <h1 style="margin:8px 0;color:var(--brand2)" id="netEarnings">₪0</h1>
+          <div class="small">Sales - Purchases</div>
+        </div>
+
+        <div class="panel">
+          <div class="small" style="opacity:0.7">Total Orders</div>
+          <h1 style="margin:8px 0" id="totalOrders">0</h1>
+          <div class="small">All time</div>
+        </div>
+      </div>
+
+      <!-- Status Overview -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px">
+        <div class="panel" style="text-align:center">
+          <div class="small">Pending Orders</div>
+          <div style="font-size:32px;font-weight:800;margin:8px 0;color:var(--warn)" id="pendingOrders">0</div>
+        </div>
+
+        <div class="panel" style="text-align:center">
+          <div class="small">Accepted Orders</div>
+          <div style="font-size:32px;font-weight:800;margin:8px 0;color:var(--ok)" id="acceptedOrders">0</div>
+        </div>
+
+        <div class="panel" style="text-align:center">
+          <div class="small">Shipped Orders</div>
+          <div style="font-size:32px;font-weight:800;margin:8px 0;color:var(--brand)" id="shippedOrders">0</div>
+        </div>
+
+        <div class="panel" style="text-align:center">
+          <div class="small">Total Products</div>
+          <div style="font-size:32px;font-weight:800;margin:8px 0" id="totalProducts">0</div>
+        </div>
+      </div>
+
+      <!-- Most Sold Products -->
+      <div class="panel">
+        <h2 style="margin-top:0">Most Sold Products</h2>
+        <div class="muted">Top selling items based on quantity sold</div>
+        <table class="table" style="margin-top:12px">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Product</th>
+              <th>Category</th>
+              <th>Total Sold</th>
+              <th>Revenue</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="topProductsBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Recent Orders -->
+      <div class="panel" style="margin-top:14px">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <h2 style="margin:0">Recent Orders</h2>
+          <a class="btn" href="admin-orders.html">View All</a>
+        </div>
+        <table class="table" style="margin-top:12px">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="recentOrdersBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+    import { initAdminDashboard } from "{{ url_for('static', filename='js/admin.js') }}";
+    initAdminDashboard();
+  </script>
+</body>
+</html>

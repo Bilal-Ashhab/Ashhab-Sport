@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Manage Stock</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="margin:0">Manage Stock</h2>
+        <a class="btn ghost" href="admin.html">← Back to Dashboard</a>
+      </div>
+
+      <div class="panel">
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">Stock Levels (All Variants)</h3>
+          <div class="pill">
+            <strong>Warehouse:</strong> Main Warehouse
+          </div>
+        </div>
+
+        <div class="field" style="max-width:400px;margin-bottom:12px">
+          <input id="searchStock" placeholder="🔍 Search by product name..." />
+        </div>
+
+        <div class="small" style="margin-bottom:10px">
+          Edit the quantity per size/color variant. Changes are saved automatically.
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Variant</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Current Stock</th>
+            </tr>
+          </thead>
+          <tbody id="stockBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Low Stock Alert -->
+      <div class="panel" style="margin-top:14px;border:2px solid var(--warn)">
+        <h3 style="margin-top:0;color:var(--warn)">⚠️ Low Stock Alert</h3>
+        <div class="small">Products with less than 5 items in stock</div>
+        <table class="table" style="margin-top:12px">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Variant</th>
+              <th>Stock</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="lowStockBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+    import { initAdminStock } from "{{ url_for('static', filename='js/admin.js') }}";
+    initAdminStock();
+  </script>
+</body>
+</html>

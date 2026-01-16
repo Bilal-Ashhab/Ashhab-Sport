@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="panel" style="max-width:720px;margin:0 auto">
+        <h2 style="margin-top:0">Login</h2>
+        <div class="muted">Choose account type and login.</div>
+
+        <div class="row" style="margin-top:12px">
+          <div class="field" style="flex:1">
+            <label>Login as</label>
+            <select id="loginRole">
+              <option value="customer">Customer</option>
+              <option value="staff">Employee / Admin</option>
+            </select>
+          </div>
+        </div>
+
+        <form id="loginForm" class="form" style="margin-top:10px">
+          <div class="field">
+            <label id="labelA">Email</label>
+            <input id="inputA" />
+          </div>
+          <div class="field">
+            <label id="labelB">Password</label>
+            <input id="inputB" type="password"/>
+          </div>
+          <div class="row">
+            <button class="btn primary" type="submit">Login</button>
+            <a class="btn" href="signup.html">Create customer account</a>
+            <a class="btn ghost" href="main.html">Back to store</a>
+          </div>
+        </form>
+
+        <div class="small" style="margin-top:12px;line-height:1.6">
+          Demo customer: <strong>demo@demo.com</strong> / <strong>demo123</strong><br/>
+          Demo admin: <strong>admin</strong> / <strong>admin123</strong><br/>
+          Demo employee: <strong>staff1</strong> / <strong>staff123</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+  import { initLogin } from "{{ url_for('static', filename='js/auth.js') }}";
+  initLogin();
+</script>
+
+</body>
+</html>

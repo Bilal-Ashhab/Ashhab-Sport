@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • All Orders</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="margin:0">All Orders</h2>
+        <a class="btn ghost" href="admin.html">← Back to Dashboard</a>
+      </div>
+
+      <!-- Filter Options -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="split">
+          <div class="field">
+            <label>Filter by Status</label>
+            <select id="filterStatus">
+              <option value="All">All Orders</option>
+              <option value="Pending">Pending</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Shipped">Shipped</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Search</label>
+            <input id="searchOrder" placeholder="Search by order ID or customer..." />
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders Table -->
+      <div class="panel">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Total</th>
+              <th>Employee</th>
+              <th>Items</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+
+        <div id="noOrders" style="text-align:center;padding:40px;display:none">
+          <div class="muted">No orders found matching your filters.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+    import { initAdminOrders } from "{{ url_for('static', filename='js/admin.js') }}";
+    initAdminOrders();
+  </script>
+</body>
+</html>

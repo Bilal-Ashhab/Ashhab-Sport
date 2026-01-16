@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Manage Employees</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="margin:0">Manage Employees</h2>
+        <a class="btn ghost" href="admin.html">← Back to Dashboard</a>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin-top:0">Add New Employee</h3>
+
+        <form id="empForm" class="form" style="margin-bottom:20px">
+          <div class="split">
+            <div class="field">
+              <label>First name</label>
+              <input id="efirst" required />
+            </div>
+            <div class="field">
+              <label>Last name</label>
+              <input id="elast" required />
+            </div>
+          </div>
+          <div class="split">
+            <div class="field">
+              <label>Email</label>
+              <input id="eemail" type="email" required />
+            </div>
+            <div class="field">
+              <label>Username</label>
+              <input id="euser" required />
+            </div>
+          </div>
+          <div class="split">
+            <div class="field">
+              <label>Password</label>
+              <input id="epass" type="password" required />
+            </div>
+            <div class="field">
+              <label>Role</label>
+              <select id="erole">
+                <option value="STAFF">STAFF</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
+          </div>
+          <div class="split">
+            <div class="field">
+              <label>Phone</label>
+              <input id="ephone" placeholder="059X..." />
+            </div>
+            <div class="field">
+              <label>Salary (₪)</label>
+              <input id="esalary" type="number" step="0.01" placeholder="2500.00" />
+            </div>
+          </div>
+          <button class="btn primary" type="submit">Add Employee</button>
+        </form>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h3 style="margin-top:0">All Employees</h3>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Role</th>
+              <th>Salary</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="empBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+    import { initAdminEmployees } from "{{ url_for('static', filename='js/admin.js') }}";
+    initAdminEmployees();
+  </script>
+</body>
+</html>

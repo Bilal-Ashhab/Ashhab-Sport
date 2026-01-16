@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Product</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="productTop">
+        <div class="productImg">
+          <img id="pImg" alt="Product image"/>
+        </div>
+        <div class="panel kv">
+          <div class="meta">
+            <span class="pill">Category: <strong id="pCat"></strong></span>
+            <span class="pill">Stock: <strong id="pStock"></strong></span>
+          </div>
+
+          <h1 id="pName"></h1>
+          <div class="price" id="pPrice"></div>
+          <div class="muted" id="pDesc"></div>
+
+          <div class="split" style="margin-top:12px">
+            <div class="field">
+              <label>Size</label>
+              <select id="selSize"></select>
+            </div>
+            <div class="field">
+              <label>Color</label>
+              <select id="selColor"></select>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <div class="field" style="flex:0 0 140px">
+              <label>Quantity</label>
+              <input id="qty" value="1"/>
+            </div>
+            <button class="btn primary" id="btnAdd">Add to cart</button>
+            <a class="btn" href="main.html">Back</a>
+          </div>
+
+          <div class="small" style="margin-top:10px;line-height:1.6">
+            Tip: customers can checkout from <strong>My Account</strong>.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+  import { initProduct } from "{{ url_for('static', filename='js/product.js') }}";
+  initProduct();
+</script>
+
+</body>
+</html>
