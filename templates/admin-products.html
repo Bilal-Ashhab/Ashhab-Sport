@@ -86,6 +86,27 @@
           <tbody id="productsBody"></tbody>
         </table>
       </div>
+
+      <!-- Edit Product Modal -->
+      <div id="editProductModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center">
+        <div class="panel" style="max-width:600px;width:90%;margin:20px">
+          <h3 style="margin-top:0">Edit Product Price</h3>
+          <form id="editProductForm" class="form">
+            <div class="field">
+              <label>Product Name</label>
+              <input id="editProductName" readonly style="background:rgba(255,255,255,0.03)"/>
+            </div>
+            <div class="field">
+              <label>Price (₪)</label>
+              <input id="editProductPrice" type="number" step="0.01" required />
+            </div>
+            <div class="row">
+              <button class="btn primary" type="submit">Update Price</button>
+              <button class="btn" type="button" id="cancelProductEdit">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </section>
 

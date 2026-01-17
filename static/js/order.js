@@ -44,23 +44,13 @@ export async function initOrder(){
     if (!actions) return;
 
     if (sess && sess.type === "employee") {
+      // Only show Cancel button for employees
       actions.innerHTML = `
-        <button class="btn ok" id="btnShip">Mark as Shipped</button>
         <button class="btn danger" id="btnCancel">Cancel Order</button>
       `;
 
-      qs("#btnShip").addEventListener("click", async ()=>{
-        try {
-          await API.updateOrderStatus(id, "Shipped");
-          toast("Updated", "Order marked as shipped.", "ok");
-          const o2 = await API.getOrderDetail(id);
-          render(o2);
-        } catch (e) {
-          toast("Error", e.message, "bad");
-        }
-      });
-
       qs("#btnCancel").addEventListener("click", async ()=>{
+        if (!confirm("Are you sure you want to cancel this order?")) return;
         try {
           await API.updateOrderStatus(id, "Cancelled");
           toast("Updated", "Order cancelled.", "ok");

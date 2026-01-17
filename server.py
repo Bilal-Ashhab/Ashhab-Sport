@@ -42,6 +42,11 @@ def customer():
     return render_template("customer.html")
 
 
+@app.route("/payment-info.html")
+def payment_info():
+    return render_template("payment-info.html")
+
+
 @app.route("/employee.html")
 def employee():
     return render_template("employee.html")
@@ -545,6 +550,17 @@ def api_create_order():
     try:
         cur = conn.cursor(dictionary=True)
 
+        # Check if customer has payment info
+        cur.execute("""
+            SELECT payment_info_id FROM customer_payment_info 
+            WHERE customer_id = %s LIMIT 1
+        """, (customer_id,))
+        payment_info = cur.fetchone()
+
+        if not payment_info:
+            cur.close()
+            return jsonify({"error": "Payment info required", "redirect": "payment-info"}), 400
+
         # Get cart
         cur.execute("SELECT cart_id FROM cart WHERE customer_id = %s", (customer_id,))
         cart = cur.fetchone()
@@ -599,6 +615,113 @@ def api_create_order():
         conn.rollback()
         print(f"Order creation error: {e}")
         traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/payment-info", methods=["GET"])
+def api_get_payment_info():
+    """Get customer payment info"""
+    if 'user_id' not in session or session.get('user_type') != 'customer':
+        return jsonify({"error": "Not logged in"}), 401
+
+    customer_id = session['user_id']
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT payment_info_id, card_type, card_holder_name, 
+                   card_number, expiry_month, expiry_year, is_default
+            FROM customer_payment_info
+            WHERE customer_id = %s
+            ORDER BY is_default DESC, payment_info_id DESC
+        """, (customer_id,))
+        payment_info = cur.fetchall()
+
+        # Mask card numbers (show last 4 digits only)
+        for info in payment_info:
+            if len(info['card_number']) > 4:
+                info['card_number_masked'] = '**** **** **** ' + info['card_number'][-4:]
+            else:
+                info['card_number_masked'] = info['card_number']
+
+        cur.close()
+        return jsonify(payment_info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/payment-info", methods=["POST"])
+def api_add_payment_info():
+    """Add customer payment info"""
+    if 'user_id' not in session or session.get('user_type') != 'customer':
+        return jsonify({"error": "Not logged in"}), 401
+
+    customer_id = session['user_id']
+    data = request.get_json()
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+
+        # If this is set as default, unset other defaults
+        if data.get('is_default', 0):
+            cur.execute("""
+                UPDATE customer_payment_info 
+                SET is_default = 0 
+                WHERE customer_id = %s
+            """, (customer_id,))
+
+        cur.execute("""
+            INSERT INTO customer_payment_info 
+            (customer_id, card_type, card_holder_name, card_number, 
+             expiry_month, expiry_year, cvv, is_default)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            customer_id,
+            data.get('card_type'),
+            data.get('card_holder_name'),
+            data.get('card_number'),
+            data.get('expiry_month'),
+            data.get('expiry_year'),
+            data.get('cvv'),
+            data.get('is_default', 0)
+        ))
+        conn.commit()
+        payment_info_id = cur.lastrowid
+        cur.close()
+        return jsonify({"success": True, "payment_info_id": payment_info_id})
+    except Exception as e:
+        conn.rollback()
+        print(f"Payment info error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/payment-info/<int:payment_info_id>", methods=["DELETE"])
+def api_delete_payment_info(payment_info_id):
+    """Delete payment info"""
+    if 'user_id' not in session or session.get('user_type') != 'customer':
+        return jsonify({"error": "Not logged in"}), 401
+
+    customer_id = session['user_id']
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM customer_payment_info
+            WHERE payment_info_id = %s AND customer_id = %s
+        """, (payment_info_id, customer_id))
+        conn.commit()
+        cur.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
@@ -765,11 +888,17 @@ def api_get_employees():
     try:
         cur = conn.cursor(dictionary=True)
         cur.execute("""
-            SELECT employee_id, first_name, last_name, username, email, role, phone
+            SELECT employee_id, first_name, last_name, username, email, role, phone, salary
             FROM employee
             ORDER BY employee_id
         """)
         employees = cur.fetchall()
+
+        # Convert Decimal to float for JSON
+        for emp in employees:
+            if emp['salary']:
+                emp['salary'] = float(emp['salary'])
+
         cur.close()
         return jsonify(employees)
     except Exception as e:
@@ -789,8 +918,8 @@ def api_create_employee():
     try:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO employee (first_name, last_name, email, username, password, role, phone)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO employee (first_name, last_name, email, username, password, role, phone, salary)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             data.get("first_name"),
             data.get("last_name"),
@@ -798,7 +927,8 @@ def api_create_employee():
             data.get("username"),
             data.get("password"),
             data.get("role", "STAFF"),
-            data.get("phone", "")
+            data.get("phone", ""),
+            data.get("salary", 0)
         ))
         conn.commit()
         employee_id = cur.lastrowid
@@ -821,6 +951,31 @@ def api_delete_employee(employee_id):
     try:
         cur = conn.cursor()
         cur.execute("DELETE FROM employee WHERE employee_id = %s", (employee_id,))
+        conn.commit()
+        cur.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/employees/<int:employee_id>", methods=["PUT"])
+def api_update_employee(employee_id):
+    """Update employee (admin only)"""
+    if 'user_id' not in session or session.get('user_role') != 'ADMIN':
+        return jsonify({"error": "Admin only"}), 401
+
+    data = request.get_json()
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE employee 
+            SET salary = %s
+            WHERE employee_id = %s
+        """, (data.get("salary"), employee_id))
         conn.commit()
         cur.close()
         return jsonify({"success": True})
@@ -903,15 +1058,19 @@ def api_admin_stats():
     try:
         cur = conn.cursor(dictionary=True)
 
-        # Total sales from orders
-        cur.execute("SELECT COALESCE(SUM(total_amount), 0) as total_sales FROM `order`")
+        # Total sales from ACCEPTED orders only
+        cur.execute("""
+            SELECT COALESCE(SUM(total_amount), 0) as total_sales 
+            FROM `order` 
+            WHERE status = 'Accepted'
+        """)
         total_sales = float(cur.fetchone()['total_sales'])
 
         # Total purchases from purchase orders
         cur.execute("SELECT COALESCE(SUM(total_cost), 0) as total_purchases FROM purchase_order")
         total_purchases = float(cur.fetchone()['total_purchases'])
 
-        # Net earnings
+        # Net earnings (only from accepted orders)
         net_earnings = total_sales - total_purchases
 
         # Total orders
@@ -938,7 +1097,6 @@ def api_admin_stats():
             "total_orders": total_orders,
             "pending_orders": status_counts.get('Pending', 0),
             "accepted_orders": status_counts.get('Accepted', 0),
-            "shipped_orders": status_counts.get('Shipped', 0),
             "cancelled_orders": status_counts.get('Cancelled', 0),
             "total_products": total_products
         })

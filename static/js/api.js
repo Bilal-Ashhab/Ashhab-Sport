@@ -35,6 +35,26 @@ export const API = {
     return this.request('/api/categories');
   },
 
+  async createProduct(data) {
+    return this.request('/api/products', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateProduct(productId, data) {
+    return this.request(`/api/products/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteProduct(productId) {
+    return this.request(`/api/products/${productId}`, {
+      method: 'DELETE'
+    });
+  },
+
   // Auth
   async login(role, username, password) {
     return this.request('/api/login', {
@@ -117,8 +137,17 @@ export const API = {
     });
   },
 
+  async updateEmployee(employeeId, data) {
+    return this.request(`/api/employees/${employeeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
   async deleteEmployee(employeeId) {
-    return this.request(`/api/employees/${employeeId}`, { method: 'DELETE' });
+    return this.request(`/api/employees/${employeeId}`, {
+      method: 'DELETE'
+    });
   },
 
   // Stock (admin)
@@ -142,23 +171,20 @@ export const API = {
     return this.request(`/api/admin/top-products?limit=${limit}`);
   },
 
-  // Product management
-  async createProduct(data) {
-    return this.request('/api/products', {
+  // Payment Info
+  async getPaymentInfo() {
+    return this.request('/api/payment-info');
+  },
+
+  async addPaymentInfo(data) {
+    return this.request('/api/payment-info', {
       method: 'POST',
       body: JSON.stringify(data)
     });
   },
 
-  async updateProduct(productId, data) {
-    return this.request(`/api/products/${productId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-  },
-
-  async deleteProduct(productId) {
-    return this.request(`/api/products/${productId}`, {
+  async deletePaymentInfo(paymentInfoId) {
+    return this.request(`/api/payment-info/${paymentInfoId}`, {
       method: 'DELETE'
     });
   }

@@ -11,8 +11,15 @@
 
   <section class="section">
     <div class="container">
-      <h2 style="margin:0">Customer Dashboard</h2>
-      <div class="muted">Welcome, <span id="who"></span></div>
+
+      <!-- Header row with Payment button -->
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div>
+          <h2 style="margin:0">Customer Dashboard</h2>
+          <div class="muted">Welcome, <span id="who"></span></div>
+        </div>
+        <a class="btn" href="payment-info.html">💳 Payment Methods</a>
+      </div>
 
       <div class="split" style="margin-top:14px">
         <div class="panel">
@@ -61,9 +68,9 @@
   <div id="appFooter"></div>
 
   <script type="module">
-  import { initCustomer } from "{{ url_for('static', filename='js/customer.js') }}";
-  initCustomer();
-</script>
+    import { initCustomer } from "{{ url_for('static', filename='js/customer.js') }}";
+    initCustomer();
+  </script>
 
 </body>
 </html>

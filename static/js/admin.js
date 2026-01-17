@@ -22,7 +22,7 @@ export async function initAdminDashboard(){
     qs("#totalOrders").textContent = stats.total_orders;
     qs("#pendingOrders").textContent = stats.pending_orders;
     qs("#acceptedOrders").textContent = stats.accepted_orders;
-    qs("#shippedOrders").textContent = stats.shipped_orders;
+    qs("#cancelledOrders").textContent = stats.cancelled_orders || 0;
     qs("#totalProducts").textContent = stats.total_products;
   } catch (e) {
     console.error("Stats error:", e);
@@ -89,6 +89,8 @@ export async function initAdminEmployees(){
   await injectLayout();
   wireLogout();
 
+  let currentEditId = null;
+
   async function renderEmployees(){
     try {
       const emps = await API.getEmployees();
@@ -98,6 +100,8 @@ export async function initAdminEmployees(){
         const deleteBtn = e.username === "admin" ? '-' :
           '<button class="btn danger" data-del="' + e.employee_id + '">Delete</button>';
 
+        const salary = e.salary ? parseFloat(e.salary) : 0;
+
         return '<tr>' +
           '<td><strong>#' + e.employee_id + '</strong></td>' +
           '<td>' + escapeHtml(e.first_name) + ' ' + escapeHtml(e.last_name) + '</td>' +
@@ -105,11 +109,26 @@ export async function initAdminEmployees(){
           '<td>' + escapeHtml(e.email) + '</td>' +
           '<td>' + escapeHtml(e.phone || '-') + '</td>' +
           '<td><span class="pill">' + escapeHtml(e.role) + '</span></td>' +
-          '<td>' + formatCurrency(e.salary || 0) + '</td>' +
-          '<td>' + deleteBtn + '</td>' +
+          '<td><strong>' + formatCurrency(salary) + '</strong></td>' +
+          '<td>' +
+            '<button class="btn" data-edit="' + e.employee_id + '" data-name="' +
+            escapeHtml(e.first_name + ' ' + e.last_name) + '" data-salary="' + salary + '">Edit Salary</button> ' +
+            deleteBtn +
+          '</td>' +
         '</tr>';
       }).join("");
 
+      // Wire edit buttons
+      tbody.querySelectorAll("button[data-edit]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          currentEditId = Number(btn.dataset.edit);
+          qs("#editName").value = btn.dataset.name;
+          qs("#editSalary").value = btn.dataset.salary;
+          qs("#editModal").style.display = "flex";
+        });
+      });
+
+      // Wire delete buttons
       tbody.querySelectorAll("button[data-del]").forEach(btn => {
         btn.addEventListener("click", async () => {
           if (!confirm("Are you sure you want to delete this employee?")) return;
@@ -129,6 +148,7 @@ export async function initAdminEmployees(){
     }
   }
 
+  // Add employee form
   const form = qs("#empForm");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -140,7 +160,8 @@ export async function initAdminEmployees(){
       username: qs("#euser").value.trim(),
       password: qs("#epass").value,
       role: qs("#erole").value,
-      phone: qs("#ephone").value.trim()
+      phone: qs("#ephone").value.trim(),
+      salary: parseFloat(qs("#esalary").value || 0)
     };
 
     if (!data.first_name || !data.last_name || !data.email || !data.username || !data.password) {
@@ -158,6 +179,28 @@ export async function initAdminEmployees(){
     }
   });
 
+  // Edit employee form
+  const editForm = qs("#editForm");
+  editForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const salary = parseFloat(qs("#editSalary").value);
+
+    try {
+      await API.updateEmployee(currentEditId, { salary });
+      qs("#editModal").style.display = "none";
+      toast("Updated", "Salary updated successfully.", "ok");
+      renderEmployees();
+    } catch (e) {
+      toast("Error", e.message, "bad");
+    }
+  });
+
+  // Cancel edit
+  qs("#cancelEdit").addEventListener("click", () => {
+    qs("#editModal").style.display = "none";
+  });
+
   renderEmployees();
 }
 
@@ -170,6 +213,7 @@ export async function initAdminProducts(){
   wireLogout();
 
   let allProducts = [];
+  let currentEditProductId = null;
 
   async function renderProducts(filter){
     filter = filter || "";
@@ -196,12 +240,25 @@ export async function initAdminProducts(){
           '<td>' + featuredText + '</td>' +
           '<td>' + p.variants.length + ' variants</td>' +
           '<td>' +
-            '<a class="btn" href="product.html?id=' + p.product_id + '">View</a> ' +
+            '<button class="btn" data-edit-product="' + p.product_id + '" data-product-name="' +
+            escapeHtml(p.product_name) + '" data-product-price="' + p.price + '">Edit Price</button> ' +
+            '<a class="btn ghost" href="product.html?id=' + p.product_id + '">View</a> ' +
             '<button class="btn danger" data-del="' + p.product_id + '">Delete</button>' +
           '</td>' +
         '</tr>';
       }).join("");
 
+      // Wire edit price buttons
+      tbody.querySelectorAll("button[data-edit-product]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          currentEditProductId = Number(btn.dataset.editProduct);
+          qs("#editProductName").value = btn.dataset.productName;
+          qs("#editProductPrice").value = btn.dataset.productPrice;
+          qs("#editProductModal").style.display = "flex";
+        });
+      });
+
+      // Wire delete buttons
       tbody.querySelectorAll("button[data-del]").forEach(btn => {
         btn.addEventListener("click", async () => {
           if (!confirm("Delete this product? This will also delete all variants.")) return;
@@ -221,6 +278,7 @@ export async function initAdminProducts(){
     }
   }
 
+  // Add product form
   const form = qs("#productForm");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -247,6 +305,36 @@ export async function initAdminProducts(){
     } catch (e) {
       toast("Error", e.message, "bad");
     }
+  });
+
+  // Edit product price form
+  const editProductForm = qs("#editProductForm");
+  editProductForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const price = parseFloat(qs("#editProductPrice").value);
+
+    try {
+      const product = allProducts.find(p => p.product_id === currentEditProductId);
+      await API.updateProduct(currentEditProductId, {
+        product_name: product.product_name,
+        description: product.description,
+        price: price,
+        category: product.category,
+        image_url: product.image_url,
+        featured: product.featured
+      });
+      qs("#editProductModal").style.display = "none";
+      toast("Updated", "Price updated successfully.", "ok");
+      renderProducts("");
+    } catch (e) {
+      toast("Error", e.message, "bad");
+    }
+  });
+
+  // Cancel product edit
+  qs("#cancelProductEdit").addEventListener("click", () => {
+    qs("#editProductModal").style.display = "none";
   });
 
   const searchInput = qs("#searchProducts");
@@ -396,7 +484,6 @@ export async function initAdminOrders(){
           const statusColors = {
             'Pending': 'var(--warn)',
             'Accepted': 'var(--ok)',
-            'Shipped': 'var(--brand)',
             'Cancelled': 'var(--bad)'
           };
           const statusColor = statusColors[o.status] || 'var(--text)';

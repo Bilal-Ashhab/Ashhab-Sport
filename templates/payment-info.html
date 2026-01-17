@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Payment Information</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="margin:0">Payment Information</h2>
+        <a class="btn ghost" href="customer.html">← Back to My Account</a>
+      </div>
+
+      <div id="paymentRequiredAlert" style="display:none;margin-bottom:20px">
+        <div class="panel" style="border:2px solid var(--warn);background:rgba(255,204,102,0.1)">
+          <h3 style="margin-top:0;color:var(--warn)">⚠️ Payment Information Required</h3>
+          <p>You need to add payment information before you can place orders. Please add your card details below.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin-top:0">Add Payment Method</h3>
+
+        <form id="paymentForm" class="form">
+          <div class="field">
+            <label>Card Type</label>
+            <select id="cardType" required>
+              <option value="">Select card type</option>
+              <option value="Visa">Visa</option>
+              <option value="Mastercard">Mastercard</option>
+              <option value="American Express">American Express</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Cardholder Name</label>
+            <input id="cardHolderName" placeholder="Name on card" required />
+          </div>
+
+          <div class="field">
+            <label>Card Number</label>
+            <input id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" required />
+          </div>
+
+          <div class="split">
+            <div class="field">
+              <label>Expiry Month</label>
+              <select id="expiryMonth" required>
+                <option value="">MM</option>
+                <option value="01">01</option>
+                <option value="02">02</option>
+                <option value="03">03</option>
+                <option value="04">04</option>
+                <option value="05">05</option>
+                <option value="06">06</option>
+                <option value="07">07</option>
+                <option value="08">08</option>
+                <option value="09">09</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Expiry Year</label>
+              <select id="expiryYear" required>
+                <option value="">YYYY</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="split">
+            <div class="field">
+              <label>CVV</label>
+              <input id="cvv" placeholder="123" maxlength="4" type="password" required />
+            </div>
+            <div class="field" style="display:flex;align-items:center;padding-top:24px">
+              <label style="margin:0;display:flex;align-items:center">
+                <input type="checkbox" id="isDefault" style="width:auto;margin-right:8px" />
+                Set as default payment method
+              </label>
+            </div>
+          </div>
+
+          <button class="btn primary" type="submit">Add Payment Method</button>
+        </form>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h3 style="margin-top:0">Saved Payment Methods</h3>
+        <div id="noPayments" style="padding:20px;text-align:center;color:var(--muted)">
+          No payment methods saved yet.
+        </div>
+        <table class="table" id="paymentsTable" style="display:none">
+          <thead>
+            <tr>
+              <th>Card Type</th>
+              <th>Cardholder</th>
+              <th>Card Number</th>
+              <th>Expiry</th>
+              <th>Default</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="paymentsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+    import { initPaymentInfo } from "{{ url_for('static', filename='js/customer.js') }}";
+    initPaymentInfo();
+  </script>
+</body>
+</html>

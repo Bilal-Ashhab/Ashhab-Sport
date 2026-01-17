@@ -85,6 +85,27 @@
           <tbody id="empBody"></tbody>
         </table>
       </div>
+
+      <!-- Edit Employee Modal -->
+      <div id="editModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center">
+        <div class="panel" style="max-width:600px;width:90%;margin:20px">
+          <h3 style="margin-top:0">Edit Employee Salary</h3>
+          <form id="editForm" class="form">
+            <div class="field">
+              <label>Employee Name</label>
+              <input id="editName" readonly style="background:rgba(255,255,255,0.03)"/>
+            </div>
+            <div class="field">
+              <label>Salary (₪)</label>
+              <input id="editSalary" type="number" step="0.01" required />
+            </div>
+            <div class="row">
+              <button class="btn primary" type="submit">Update Salary</button>
+              <button class="btn" type="button" id="cancelEdit">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </section>
 
