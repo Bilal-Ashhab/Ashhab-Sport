@@ -68,11 +68,17 @@
               </select>
             </div>
             <div class="field">
-              <label>Expiry Year</label>
-              <select id="expiryYear" required>
-                <option value="">YYYY</option>
-              </select>
-            </div>
+  <label>Expiry Year</label>
+  <input
+    id="expiryYear"
+    placeholder="YYYY"
+    maxlength="4"
+    pattern="[0-9]{4}"
+    inputmode="numeric"
+    required
+  />
+</div>
+
           </div>
 
           <div class="split">
