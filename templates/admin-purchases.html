@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Purchases</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div>
+          <h2 style="margin:0">Purchases</h2>
+          <div class="muted">Add items from suppliers to stock</div>
+        </div>
+        <a class="btn ghost" href="admin.html">← Back to Dashboard</a>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin-top:0">New Purchase</h3>
+        <form id="purchaseForm" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+          <div class="field">
+            <label>Supplier Name</label>
+            <input id="supplierName" placeholder="e.g., Adidas Supplier" required />
+          </div>
+
+          <div class="field" style="grid-column:1/-1">
+            <label>Item (Variant)</label>
+            <select id="variantSelect" required></select>
+            <div class="small muted" style="margin-top:6px">Tip: search using your browser's select typing.</div>
+          </div>
+
+          <div class="field">
+            <label>Quantity</label>
+            <input id="qty" type="number" min="1" value="1" required />
+          </div>
+
+          <div class="field">
+            <label>Unit Cost (₪)</label>
+            <input id="unitCost" type="number" min="0" step="0.01" placeholder="0.00" required />
+          </div>
+
+          <div class="field">
+            <label>Total Cost (₪)</label>
+            <input id="totalCost" type="text" value="0.00" disabled />
+          </div>
+
+          <div class="field" style="grid-column:1/-1">
+            <label>Notes (optional)</label>
+            <input id="notes" placeholder="Any note about this purchase..." />
+          </div>
+
+          <div class="row" style="grid-column:1/-1;justify-content:flex-end;gap:10px">
+            <button class="btn" type="button" id="refreshVariants">Refresh Items</button>
+            <button class="btn ok" type="submit">Add Purchase</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <h3 style="margin:0">Recent Purchases</h3>
+          <button class="btn" id="refreshPurchases">Refresh</button>
+        </div>
+        <table class="table" style="margin-top:12px">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Supplier</th>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Unit Cost</th>
+              <th>Total</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="purchasesBody"></tbody>
+        </table>
+        <div id="noPurchases" class="muted" style="display:none;margin-top:10px">No purchases yet.</div>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+    import { initAdminPurchases } from "{{ url_for('static', filename='js/admin.js') }}";
+    initAdminPurchases();
+  </script>
+</body>
+</html>
