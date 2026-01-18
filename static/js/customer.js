@@ -74,6 +74,11 @@ async function checkout(){
     renderCart();
     renderOrders();
   } catch (e) {
+    // If backend tells us payment info is required, send the user to the payment page.
+    if (e?.data?.redirect === "payment-info") {
+      window.location.href = "payment-info.html?required=1";
+      return;
+    }
     toast("Error", e.message, "bad");
   }
 }
@@ -117,4 +122,159 @@ export async function initCustomer(){
   renderOrders();
 
   qs("#btnCheckout").addEventListener("click", ()=>checkout());
+}
+
+// =====================
+// Payment Info page
+// =====================
+
+function normalizeCardNumber(raw){
+  return String(raw || "").replace(/\s+/g, "").trim();
+}
+
+function formatCardNumberForInput(raw){
+  const digits = normalizeCardNumber(raw).replace(/[^0-9]/g, "");
+  // Group as 4-4-4-4 (keeps up to 19 digits for some cards)
+  return digits.replace(/(.{4})/g, "$1 ").trim().slice(0, 19);
+}
+
+function validYear(y){
+  return /^\d{4}$/.test(String(y || ""));
+}
+
+async function renderPaymentMethods(){
+  const tbody = qs("#paymentsBody");
+  const table = qs("#paymentsTable");
+  const empty = qs("#noPayments");
+  if (!tbody || !table || !empty) return;
+
+  try {
+    const list = await API.getPaymentInfo();
+
+    if (!list.length){
+      table.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+
+    empty.style.display = "none";
+    table.style.display = "table";
+
+    tbody.innerHTML = list.map(p => {
+      const masked = p.card_number_masked || (p.card_number ? ("**** **** **** " + String(p.card_number).slice(-4)) : "—");
+      return `
+        <tr>
+          <td>${escapeHtml(p.card_type || "—")}</td>
+          <td>${escapeHtml(p.card_holder_name || "—")}</td>
+          <td>${escapeHtml(masked)}</td>
+          <td>${escapeHtml(p.expiry_month || "")} / ${escapeHtml(p.expiry_year || "")}</td>
+          <td>${p.is_default ? "Yes" : "—"}</td>
+          <td>
+            <button class="btn danger" data-paydel="${p.payment_info_id}">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    tbody.querySelectorAll("button[data-paydel]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = Number(btn.dataset.paydel);
+        if (!Number.isFinite(id)) return;
+        if (!confirm("Delete this payment method?") ) return;
+        try {
+          await API.deletePaymentInfo(id);
+          toast("Deleted", "Payment method removed.", "ok");
+          renderPaymentMethods();
+        } catch (e) {
+          toast("Error", e.message, "bad");
+        }
+      });
+    });
+  } catch (e) {
+    toast("Error", "Failed to load payment methods", "bad");
+  }
+}
+
+export async function initPaymentInfo(){
+  const sess = await requireRole("customer");
+  if (!sess) return;
+
+  await injectLayout();
+  wireLogout();
+
+  // Show the warning banner if the user arrived from checkout.
+  const params = new URLSearchParams(window.location.search);
+  const required = params.get("required") === "1";
+  const alertBox = qs("#paymentRequiredAlert");
+  if (alertBox && required) alertBox.style.display = "block";
+
+  // Card number formatting as the user types
+  const cardNumberEl = qs("#cardNumber");
+  if (cardNumberEl) {
+    cardNumberEl.addEventListener("input", () => {
+      const before = cardNumberEl.value;
+      cardNumberEl.value = formatCardNumberForInput(before);
+    });
+  }
+
+  // Wire form submit
+  const form = qs("#paymentForm");
+  if (form) {
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+
+      const card_type = qs("#cardType")?.value || "";
+      const card_holder_name = (qs("#cardHolderName")?.value || "").trim();
+      const card_number_raw = qs("#cardNumber")?.value || "";
+      const card_number = normalizeCardNumber(card_number_raw).replace(/[^0-9]/g, "");
+      const expiry_month = qs("#expiryMonth")?.value || "";
+      const expiry_year = (qs("#expiryYear")?.value || "").trim();
+      const cvv = (qs("#cvv")?.value || "").trim();
+      const is_default = qs("#isDefault")?.checked ? 1 : 0;
+
+      // Basic validation (backend will still validate/accept)
+      if (!card_type || !card_holder_name || !card_number || !expiry_month || !expiry_year || !cvv) {
+        toast("Missing info", "Please fill all fields.", "bad");
+        return;
+      }
+      if (card_number.length < 12 || card_number.length > 19) {
+        toast("Card number", "Card number looks invalid.", "bad");
+        return;
+      }
+      if (!validYear(expiry_year)) {
+        toast("Expiry year", "Use 4 digits (YYYY).", "bad");
+        return;
+      }
+      if (!/^\d{3,4}$/.test(cvv)) {
+        toast("CVV", "CVV must be 3–4 digits.", "bad");
+        return;
+      }
+
+      try {
+        await API.addPaymentInfo({
+          card_type,
+          card_holder_name,
+          card_number,
+          expiry_month,
+          expiry_year,
+          cvv,
+          is_default
+        });
+        toast("Saved", "Payment method added.", "ok");
+        form.reset();
+
+        // If they came from checkout, send them back to the dashboard.
+        if (required) {
+          setTimeout(() => (window.location.href = "customer.html"), 450);
+          return;
+        }
+
+        renderPaymentMethods();
+      } catch (e) {
+        toast("Error", e.message, "bad");
+      }
+    });
+  }
+
+  renderPaymentMethods();
 }

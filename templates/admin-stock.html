@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Ashhab Sport • Manage Stock</title>
+  <title>Ashhab Sport • Stock (View Only)</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -12,7 +12,7 @@
   <section class="section">
     <div class="container">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:20px">
-        <h2 style="margin:0">Manage Stock</h2>
+        <h2 style="margin:0">Stock (View Only)</h2>
         <a class="btn ghost" href="admin.html">← Back to Dashboard</a>
       </div>
 
@@ -29,7 +29,7 @@
         </div>
 
         <div class="small" style="margin-bottom:10px">
-          Edit the quantity per size/color variant. Changes are saved automatically.
+          View-only: stock quantities cannot be edited from this page. Use <a href="admin-purchases.html">Purchases</a> to add items from suppliers.
         </div>
 
         <table class="table">
@@ -48,7 +48,10 @@
 
       <!-- Low Stock Alert -->
       <div class="panel" style="margin-top:14px;border:2px solid var(--warn)">
-        <h3 style="margin-top:0;color:var(--warn)">⚠️ Low Stock Alert</h3>
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3 style="margin:0;color:var(--warn)">⚠️ Low Stock Alert</h3>
+          <a class="btn" href="admin-purchases.html">Restock via Purchases</a>
+        </div>
         <div class="small">Products with less than 5 items in stock</div>
         <table class="table" style="margin-top:12px">
           <thead>
@@ -56,7 +59,6 @@
               <th>Product</th>
               <th>Variant</th>
               <th>Stock</th>
-              <th>Action</th>
             </tr>
           </thead>
           <tbody id="lowStockBody"></tbody>

@@ -11,8 +11,17 @@ export const API = {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Request failed');
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch {
+          // ignore JSON parse errors
+        }
+        const err = new Error((errorData && errorData.error) ? errorData.error : 'Request failed');
+        // Attach extra info (e.g., redirect hints) without breaking existing callers.
+        err.data = errorData;
+        err.status = response.status;
+        throw err;
       }
 
       return await response.json();
@@ -187,5 +196,18 @@ export const API = {
     return this.request(`/api/payment-info/${paymentInfoId}`, {
       method: 'DELETE'
     });
+  },
+
+  // Purchases (admin)
+  async getPurchases() {
+    return this.request('/api/purchases');
+  },
+
+  async createPurchase(data) {
+    return this.request('/api/purchases', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
+
 };

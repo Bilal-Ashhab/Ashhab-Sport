@@ -9,6 +9,122 @@ app.secret_key = "ashhab-sport-secret-key-2025"
 DEFAULT_WAREHOUSE_ID = 1  # Main warehouse
 
 
+# ============= DB HELPERS (PURCHASES) =============
+
+
+def _table_exists(cur, table_name: str) -> bool:
+    cur.execute("""
+        SELECT COUNT(*) AS c
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+    """, (table_name,))
+
+    row = cur.fetchone()
+    if row is None:
+        return False
+
+    val = None
+    if isinstance(row, dict):
+        val = next(iter(row.values()))
+    else:
+        val = row[0]
+
+    try:
+        return int(val) > 0
+    except Exception:
+        return False
+
+
+
+def _get_columns(cur, table_name: str) -> set:
+    cur.execute("""
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+    """, (table_name,))
+
+    cols = set()
+    for row in (cur.fetchall() or []):
+        name = next(iter(row.values())) if isinstance(row, dict) else row[0]
+        if name is not None:
+            cols.add(str(name).lower())
+    return cols
+
+
+
+def _ensure_purchase_schema(cur):
+    """Create a minimal purchase schema if the tables do not exist.
+
+    This function is careful to not break if the user already has a different
+    purchase_order schema (e.g., purchase_order_id instead of purchase_id).
+    """
+    # Supplier table (only needed if the existing purchase_order expects supplier_id)
+    if not _table_exists(cur, "supplier"):
+        cur.execute("""
+            CREATE TABLE supplier (
+                supplier_id INT AUTO_INCREMENT PRIMARY KEY,
+                supplier_name VARCHAR(120) NOT NULL UNIQUE,
+                phone VARCHAR(30) NULL,
+                email VARCHAR(120) NULL,
+                address VARCHAR(255) NULL
+            ) ENGINE=InnoDB
+        """)
+
+    # Purchase header
+    if not _table_exists(cur, "purchase_order"):
+        cur.execute("""
+            CREATE TABLE purchase_order (
+                purchase_id INT AUTO_INCREMENT PRIMARY KEY,
+                supplier_name VARCHAR(120) NOT NULL,
+                purchase_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                total_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
+                created_by_role VARCHAR(20) NULL,
+                created_by_id INT NULL,
+                notes VARCHAR(255) NULL
+            ) ENGINE=InnoDB
+        """)
+
+    # Purchase lines
+    if not _table_exists(cur, "purchase_order_detail"):
+        po_cols = _get_columns(cur, "purchase_order")
+
+        fk_col = None
+        fk_ref = None
+        if "purchase_id" in po_cols:
+            fk_col, fk_ref = "purchase_id", "purchase_id"
+        elif "purchase_order_id" in po_cols:
+            fk_col, fk_ref = "purchase_order_id", "purchase_order_id"
+
+        if fk_col and fk_ref:
+            # Create with FK matching the detected primary key name.
+            cur.execute(f"""
+                CREATE TABLE purchase_order_detail (
+                    purchase_detail_id INT AUTO_INCREMENT PRIMARY KEY,
+                    {fk_col} INT NOT NULL,
+                    variant_id INT NOT NULL,
+                    quantity INT NOT NULL,
+                    unit_cost DECIMAL(12,2) NOT NULL,
+                    line_total DECIMAL(12,2) NULL,
+                    CONSTRAINT fk_purchase_detail_purchase
+                        FOREIGN KEY ({fk_col}) REFERENCES purchase_order({fk_ref})
+                        ON DELETE CASCADE
+                ) ENGINE=InnoDB
+            """)
+        else:
+            # Fallback: create without FK (still works for tracking purchases).
+            cur.execute("""
+                CREATE TABLE purchase_order_detail (
+                    purchase_detail_id INT AUTO_INCREMENT PRIMARY KEY,
+                    purchase_id INT NOT NULL,
+                    variant_id INT NOT NULL,
+                    quantity INT NOT NULL,
+                    unit_cost DECIMAL(12,2) NOT NULL,
+                    line_total DECIMAL(12,2) NULL
+                ) ENGINE=InnoDB
+            """)
+
+
+
 # ============= HTML PAGE ROUTES =============
 
 @app.route("/")
@@ -70,6 +186,11 @@ def admin_products():
 @app.route("/admin-stock.html")
 def admin_stock():
     return render_template("admin-stock.html")
+
+
+@app.route("/admin-purchases.html")
+def admin_purchases():
+    return render_template("admin-purchases.html")
 
 
 @app.route("/admin-orders.html")
@@ -337,7 +458,7 @@ def api_get_cart():
         cur.execute("SELECT cart_id FROM cart WHERE customer_id = %s", (customer_id,))
         cart = cur.fetchone()
         if not cart:
-            # Create cart if doesn't exist
+            # Create cart if it doesn't exist
             cur.execute("INSERT INTO cart (customer_id) VALUES (%s)", (customer_id,))
             conn.commit()
             cart_id = cur.lastrowid
@@ -1024,8 +1145,12 @@ def api_update_stock(variant_id):
     if 'user_id' not in session or session.get('user_role') != 'ADMIN':
         return jsonify({"error": "Admin only"}), 401
 
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     quantity = data.get("quantity")
+
+    # Optional fields (so this route never crashes)
+    purchase_id = data.get("purchase_id") or data.get("purchase_order_id")
+    notes = data.get("notes") or data.get("note")
 
     conn = get_conn()
     try:
@@ -1038,6 +1163,28 @@ def api_update_stock(variant_id):
             ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)
         """, (DEFAULT_WAREHOUSE_ID, variant_id, quantity))
 
+        # Log inventory movement (RECEIPT) if the table exists
+        try:
+            if _table_exists(cur, "inventory_movement"):
+                cur.execute(
+                    """
+                    INSERT INTO inventory_movement
+                      (warehouse_id, variant_id, movement_type, qty_change, employee_id, ref_type, ref_id, note)
+                    VALUES (%s, %s, 'RECEIPT', %s, %s, 'PURCHASE', %s, %s)
+                    """,
+                    (
+                        DEFAULT_WAREHOUSE_ID,
+                        variant_id,
+                        quantity,
+                        session.get('user_id'),
+                        purchase_id,
+                        notes if notes else None
+                    )
+                )
+        except Exception:
+            # Don't block the update if logging fails
+            pass
+
         conn.commit()
         cur.close()
         return jsonify({"success": True})
@@ -1047,6 +1194,296 @@ def api_update_stock(variant_id):
     finally:
         conn.close()
 
+
+
+# ============= PURCHASES (ADMIN) =============
+
+@app.route("/api/purchases", methods=["GET"])
+def api_get_purchases():
+    """List purchases (admin only)."""
+    if 'user_id' not in session or session.get('user_role') != 'ADMIN':
+        return jsonify({"error": "Admin only"}), 401
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        if not _table_exists(cur, "purchase_order"):
+            cur.close()
+            return jsonify([])
+
+        po_cols = _get_columns(cur, "purchase_order")
+        has_pod = _table_exists(cur, "purchase_order_detail")
+
+        pk = "purchase_id" if "purchase_id" in po_cols else ("purchase_order_id" if "purchase_order_id" in po_cols else "id")
+        date_col = "purchase_date" if "purchase_date" in po_cols else ("order_date" if "order_date" in po_cols else "created_at")
+
+        supplier_name_col = "supplier_name" if "supplier_name" in po_cols else None
+        supplier_id_col = "supplier_id" if "supplier_id" in po_cols else None
+        notes_col = "notes" if "notes" in po_cols else None
+        total_col = "total_cost" if "total_cost" in po_cols else None
+
+        select_fields = [f"po.{pk} AS purchase_id", f"po.{date_col} AS purchase_date"]
+        select_fields.append(f"po.{total_col} AS total_cost" if total_col else "0 AS total_cost")
+        select_fields.append(f"po.{notes_col} AS notes" if notes_col else "NULL AS notes")
+
+        joins = []
+        if supplier_name_col:
+            select_fields.append(f"po.{supplier_name_col} AS supplier_name")
+        elif supplier_id_col and _table_exists(cur, "supplier"):
+            joins.append("LEFT JOIN supplier sup ON sup.supplier_id = po.supplier_id")
+            select_fields.append("sup.supplier_name AS supplier_name")
+        else:
+            select_fields.append("'-' AS supplier_name")
+
+        if has_pod:
+            pod_cols = _get_columns(cur, "purchase_order_detail")
+            pod_fk = "purchase_id" if "purchase_id" in pod_cols else ("purchase_order_id" if "purchase_order_id" in pod_cols else pk)
+            qty_col = "quantity" if "quantity" in pod_cols else ("qty" if "qty" in pod_cols else "quantity")
+            unit_col = "price" if "price" in pod_cols else ("unit_cost" if "unit_cost" in pod_cols else ("cost" if "cost" in pod_cols else ("unit_price" if "unit_price" in pod_cols else "unit_cost")))
+
+            joins.append(f"LEFT JOIN purchase_order_detail pod ON pod.{pod_fk} = po.{pk}")
+            joins.append("LEFT JOIN product_variant v ON v.variant_id = pod.variant_id")
+            joins.append("LEFT JOIN product p ON p.product_id = v.product_id")
+
+            select_fields.extend([
+                "pod.variant_id AS variant_id",
+                f"pod.{qty_col} AS quantity",
+                f"pod.{unit_col} AS unit_cost",
+                "p.product_name AS product_name",
+                "v.size AS size",
+                "v.color AS color",
+            ])
+        else:
+            select_fields.extend([
+                "NULL AS variant_id",
+                "NULL AS quantity",
+                "NULL AS unit_cost",
+                "NULL AS product_name",
+                "NULL AS size",
+                "NULL AS color",
+            ])
+
+        sql = "SELECT " + ", ".join(select_fields) + " FROM purchase_order po " + " ".join(joins) + f" ORDER BY po.{date_col} DESC, po.{pk} DESC LIMIT 200"
+        cur.execute(sql)
+        rows = cur.fetchall()
+
+        for r in rows:
+            if r.get('total_cost') is not None:
+                try:
+                    r['total_cost'] = float(r['total_cost'])
+                except Exception:
+                    r['total_cost'] = 0.0
+            if r.get('unit_cost') is not None:
+                try:
+                    r['unit_cost'] = float(r['unit_cost'])
+                except Exception:
+                    r['unit_cost'] = None
+            if r.get('quantity') is not None:
+                try:
+                    r['quantity'] = int(r['quantity'])
+                except Exception:
+                    r['quantity'] = None
+
+        cur.close()
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/purchases", methods=["POST"])
+def api_create_purchase():
+    """Create a purchase and add its quantity to stock (admin only)."""
+    if 'user_id' not in session or session.get('user_role') != 'ADMIN':
+        return jsonify({"error": "Admin only"}), 401
+
+    data = request.get_json() or {}
+    supplier_name = (data.get('supplier_name') or '').strip()
+    variant_id = data.get('variant_id')
+    quantity = data.get('quantity')
+    unit_cost = data.get('unit_cost')
+    notes = (data.get('notes') or '').strip()
+
+    if not supplier_name or variant_id is None or quantity is None or unit_cost is None:
+        return jsonify({"error": "Missing fields"}), 400
+
+    try:
+        variant_id = int(variant_id)
+        quantity = int(quantity)
+        if quantity <= 0:
+            return jsonify({"error": "Quantity must be positive"}), 400
+        unit_cost = Decimal(str(unit_cost))
+        if unit_cost < 0:
+            return jsonify({"error": "Unit cost must be >= 0"}), 400
+    except Exception:
+        return jsonify({"error": "Invalid data"}), 400
+
+    line_total = unit_cost * Decimal(quantity)
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        # Ensure tables exist (won't overwrite if the user already has them)
+        _ensure_purchase_schema(cur)
+
+        po_cols = _get_columns(cur, "purchase_order")
+        pk = "purchase_id" if "purchase_id" in po_cols else ("purchase_order_id" if "purchase_order_id" in po_cols else "id")
+
+        # Decide supplier storage
+        supplier_name_col = "supplier_name" if "supplier_name" in po_cols else None
+        supplier_id_col = "supplier_id" if "supplier_id" in po_cols else None
+
+        insert_cols = []
+        insert_vals = []
+        params = []
+
+        if supplier_name_col:
+            insert_cols.append(supplier_name_col)
+            insert_vals.append("%s")
+            params.append(supplier_name)
+        elif supplier_id_col:
+            # Map supplier name -> supplier_id
+            _ensure_purchase_schema(cur)
+            sup_cols = _get_columns(cur, "supplier")
+            sup_name_col = "supplier_name" if "supplier_name" in sup_cols else ("name" if "name" in sup_cols else None)
+            if not sup_name_col:
+                return jsonify({"error": "Supplier table schema not supported"}), 500
+
+            cur.execute(f"SELECT supplier_id FROM supplier WHERE {sup_name_col} = %s", (supplier_name,))
+            row = cur.fetchone()
+            if row:
+                supplier_id = int(row['supplier_id'])
+            else:
+                cur.execute(f"INSERT INTO supplier ({sup_name_col}) VALUES (%s)", (supplier_name,))
+                supplier_id = cur.lastrowid
+
+            insert_cols.append("supplier_id")
+            insert_vals.append("%s")
+            params.append(supplier_id)
+
+        # dates/status when present
+        if 'purchase_date' in po_cols and 'purchase_date' not in insert_cols:
+            insert_cols.append('purchase_date')
+            insert_vals.append('NOW()')
+        elif 'order_date' in po_cols and 'order_date' not in insert_cols:
+            insert_cols.append('order_date')
+            insert_vals.append('CURDATE()')
+        elif 'created_at' in po_cols and 'created_at' not in insert_cols:
+            insert_cols.append('created_at')
+            insert_vals.append('NOW()')
+
+        if 'status' in po_cols and 'status' not in insert_cols:
+            insert_cols.append('status')
+            insert_vals.append('%s')
+            params.append('Received')
+
+        # total_cost
+        if 'total_cost' in po_cols:
+            insert_cols.append('total_cost')
+            insert_vals.append('%s')
+            params.append(line_total)
+
+        # created_by
+        if 'created_by_role' in po_cols:
+            insert_cols.append('created_by_role')
+            insert_vals.append('%s')
+            params.append(session.get('user_role'))
+        if 'created_by_id' in po_cols:
+            insert_cols.append('created_by_id')
+            insert_vals.append('%s')
+            params.append(session.get('user_id'))
+        if 'employee_id' in po_cols:
+            insert_cols.append('employee_id')
+            insert_vals.append('%s')
+            params.append(session.get('user_id'))
+
+        if notes and 'notes' in po_cols:
+            insert_cols.append('notes')
+            insert_vals.append('%s')
+            params.append(notes)
+
+        if not insert_cols:
+            return jsonify({"error": "purchase_order table schema not supported"}), 500
+
+        sql = f"INSERT INTO purchase_order ({', '.join(insert_cols)}) VALUES ({', '.join(insert_vals)})"
+        cur.execute(sql, tuple(params))
+        purchase_id = cur.lastrowid
+
+        # Insert purchase line if detail table exists
+        if _table_exists(cur, 'purchase_order_detail'):
+            pod_cols = _get_columns(cur, 'purchase_order_detail')
+            pod_fk = 'purchase_id' if 'purchase_id' in pod_cols else ('purchase_order_id' if 'purchase_order_id' in pod_cols else None)
+            qty_col = 'quantity' if 'quantity' in pod_cols else ('qty' if 'qty' in pod_cols else 'quantity')
+            unit_col = 'price' if 'price' in pod_cols else ('unit_cost' if 'unit_cost' in pod_cols else ('cost' if 'cost' in pod_cols else ('unit_price' if 'unit_price' in pod_cols else 'unit_cost')))
+
+            line_cols = []
+            line_vals = []
+            line_params = []
+
+            if pod_fk:
+                line_cols.append(pod_fk)
+                line_vals.append('%s')
+                line_params.append(purchase_id)
+
+            if 'variant_id' in pod_cols:
+                line_cols.append('variant_id')
+                line_vals.append('%s')
+                line_params.append(variant_id)
+
+            if qty_col in pod_cols:
+                line_cols.append(qty_col)
+                line_vals.append('%s')
+                line_params.append(quantity)
+
+            if unit_col in pod_cols:
+                line_cols.append(unit_col)
+                line_vals.append('%s')
+                line_params.append(unit_cost)
+
+            if 'line_total' in pod_cols:
+                line_cols.append('line_total')
+                line_vals.append('%s')
+                line_params.append(line_total)
+
+            if line_cols:
+                cur.execute(
+                    f"INSERT INTO purchase_order_detail ({', '.join(line_cols)}) VALUES ({', '.join(line_vals)})",
+                    tuple(line_params)
+                )
+
+        # Add to stock (increment)
+        cur.execute("""
+            INSERT INTO stock (warehouse_id, variant_id, quantity)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
+        """, (DEFAULT_WAREHOUSE_ID, variant_id, quantity))
+
+        # Log inventory movement (RECEIPT) if the table exists
+        try:
+            if _table_exists(cur, "inventory_movement"):
+                cur.execute(
+                    """
+                    INSERT INTO inventory_movement
+                      (warehouse_id, variant_id, movement_type, qty_change, employee_id, ref_type, ref_id, note)
+                    VALUES (%s, %s, 'RECEIPT', %s, %s, 'PURCHASE', %s, %s)
+                    """,
+                    (DEFAULT_WAREHOUSE_ID, variant_id, quantity, session.get('user_id'), purchase_id, (notes if notes else None))
+                )
+        except Exception:
+            # Don't block the purchase if logging fails
+            pass
+
+        conn.commit()
+        cur.close()
+        return jsonify({"success": True, "purchase_id": purchase_id})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 @app.route("/api/admin/stats", methods=["GET"])
 def api_admin_stats():
@@ -1067,8 +1504,11 @@ def api_admin_stats():
         total_sales = float(cur.fetchone()['total_sales'])
 
         # Total purchases from purchase orders
-        cur.execute("SELECT COALESCE(SUM(total_cost), 0) as total_purchases FROM purchase_order")
-        total_purchases = float(cur.fetchone()['total_purchases'])
+        if _table_exists(cur, "purchase_order"):
+            cur.execute("SELECT COALESCE(SUM(total_cost), 0) as total_purchases FROM purchase_order")
+            total_purchases = float(cur.fetchone()['total_purchases'])
+        else:
+            total_purchases = 0.0
 
         # Net earnings (only from accepted orders)
         net_earnings = total_sales - total_purchases

@@ -377,54 +377,23 @@ export async function initAdminStock(){
           '<td>' + escapeHtml(s.size) + ' / ' + escapeHtml(s.color) + '</td>' +
           '<td>' + escapeHtml(s.category) + '</td>' +
           '<td>' + formatCurrency(s.price) + '</td>' +
-          '<td>' +
-            '<input data-stock="' + s.variant_id + '" value="' + s.stock_quantity + '" ' +
-                   'style="width:90px" type="number" min="0"/>' +
-          '</td>' +
+          '<td><strong>' + s.stock_quantity + '</strong></td>' +
         '</tr>';
       }).join("");
 
       // Low stock alert
       const lowStock = allStock.filter(s => s.stock_quantity < 5);
       if (lowStock.length === 0) {
-        lowStockBody.innerHTML = '<tr><td colspan="4" class="muted">All products are well stocked! 🎉</td></tr>';
+        lowStockBody.innerHTML = '<tr><td colspan="3" class="muted">All products are well stocked! 🎉</td></tr>';
       } else {
         lowStockBody.innerHTML = lowStock.map(s => {
           return '<tr style="background:rgba(255,204,102,0.1)">' +
             '<td><strong>' + escapeHtml(s.product_name) + '</strong></td>' +
             '<td>' + escapeHtml(s.size) + ' / ' + escapeHtml(s.color) + '</td>' +
             '<td><strong style="color:var(--warn)">' + s.stock_quantity + '</strong></td>' +
-            '<td><button class="btn" data-focus="' + s.variant_id + '">Update Stock</button></td>' +
           '</tr>';
         }).join("");
-
-        // Add focus handlers
-        lowStockBody.querySelectorAll("button[data-focus]").forEach(btn => {
-          btn.addEventListener("click", () => {
-            const inp = document.querySelector('[data-stock="' + btn.dataset.focus + '"]');
-            if (inp) {
-              inp.focus();
-              inp.select();
-            }
-          });
-        });
       }
-
-      tbody.querySelectorAll("input[data-stock]").forEach(inp => {
-        inp.addEventListener("change", async () => {
-          const variantId = Number(inp.dataset.stock);
-          let q = Number(inp.value || 0);
-          if (!Number.isFinite(q) || q < 0) q = 0;
-
-          try {
-            await API.updateStock(variantId, q);
-            toast("Stock updated", "Variant #" + variantId + " = " + q, "ok");
-            renderStock(filter);
-          } catch (e) {
-            toast("Error", e.message, "bad");
-          }
-        });
-      });
     } catch (e) {
       console.error("Stock error:", e);
       toast("Error", "Failed to load stock", "bad");
@@ -450,6 +419,16 @@ export async function initAdminOrders(){
   wireLogout();
 
   let allOrders = [];
+
+  async function acceptOrder(orderId){
+    try {
+      await API.acceptOrder(orderId);
+      toast("Accepted", `Order #${orderId} accepted. Stock updated.`, "ok");
+      renderOrders(filterStatus ? filterStatus.value : "All", searchOrder ? searchOrder.value : "");
+    } catch (e) {
+      toast("Error", e.message, "bad");
+    }
+  }
 
   async function renderOrders(statusFilter, searchFilter){
     statusFilter = statusFilter || "All";
@@ -491,6 +470,9 @@ export async function initAdminOrders(){
           const employeeName = o.employee_first ?
             (o.employee_first + ' ' + o.employee_last) : '-';
           const orderDate = new Date(o.order_date).toLocaleString();
+          const acceptBtn = o.status === 'Pending'
+            ? '<button class="btn ok" data-accept="' + o.order_id + '">Accept</button> '
+            : '';
 
           return '<tr>' +
             '<td><strong>#' + o.order_id + '</strong></td>' +
@@ -504,10 +486,18 @@ export async function initAdminOrders(){
               '<a class="btn ghost" href="order.html?id=' + o.order_id + '">View Items</a>' +
             '</td>' +
             '<td>' +
+              acceptBtn +
               '<a class="btn" href="order.html?id=' + o.order_id + '">Details</a>' +
             '</td>' +
           '</tr>';
         }).join("");
+
+        // Wire accept buttons (admins can accept like employees)
+        tbody.querySelectorAll('button[data-accept]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            acceptOrder(Number(btn.dataset.accept));
+          });
+        });
       }
     } catch (e) {
       console.error("Orders error:", e);
@@ -531,4 +521,177 @@ export async function initAdminOrders(){
   }
 
   renderOrders("All", "");
+}
+// ==================== PURCHASES ====================
+export async function initAdminPurchases(){
+  const sess = await requireRole("admin");
+  if (!sess) return;
+
+  await injectLayout();
+  wireLogout();
+
+  const who = qs("#who");
+  if (who) who.textContent = sess.name;
+
+  const variantSelect = qs('#variantSelect');
+  const supplierName = qs('#supplierName');
+  const qty = qs('#qty');
+  const unitCost = qs('#unitCost');
+  const totalCost = qs('#totalCost');
+  const notes = qs('#notes');
+  const purchasesBody = qs('#purchasesBody');
+  const noPurchases = qs('#noPurchases');
+
+  function calcTotal(){
+    const q = Number(qty?.value || 0);
+    const u = Number(unitCost?.value || 0);
+    const t = (q * u);
+    if (totalCost) totalCost.value = isFinite(t) ? t.toFixed(2) : '0.00';
+  }
+
+  async function loadVariants(){
+    if (!variantSelect) return;
+
+    try {
+      const stock = await API.getStock();
+      // Sort: product_name then size/color
+      stock.sort((a,b) => {
+        const pa = (a.product_name || '').toLowerCase();
+        const pb = (b.product_name || '').toLowerCase();
+        if (pa !== pb) return pa.localeCompare(pb);
+        const sa = (a.size || '').toLowerCase();
+        const sb = (b.size || '').toLowerCase();
+        if (sa !== sb) return sa.localeCompare(sb);
+        const ca = (a.color || '').toLowerCase();
+        const cb = (b.color || '').toLowerCase();
+        return ca.localeCompare(cb);
+      });
+
+      variantSelect.innerHTML = stock.map(s => {
+        const label = `${s.product_name} • ${s.size || '-'} / ${s.color || '-'} • Stock: ${s.stock_quantity}`;
+        return `<option value="${s.variant_id}">${escapeHtml(label)}</option>`;
+      }).join('');
+
+      if (!stock.length) {
+        variantSelect.innerHTML = '<option value="">No items found</option>';
+      }
+
+    } catch (e) {
+      console.error('Variants error:', e);
+      toast('Error', 'Failed to load items', 'bad');
+    }
+  }
+
+  function formatDateTime(dt){
+    if (!dt) return '-';
+    const d = new Date(dt);
+    if (isNaN(d.getTime())) return String(dt);
+    return d.toLocaleString();
+  }
+
+  async function loadPurchases(){
+    if (!purchasesBody) return;
+
+    try {
+      const rows = await API.getPurchases();
+
+      if (!rows.length) {
+        purchasesBody.innerHTML = '';
+        if (noPurchases) noPurchases.style.display = 'block';
+        return;
+      }
+
+      if (noPurchases) noPurchases.style.display = 'none';
+
+      purchasesBody.innerHTML = rows.map(r => {
+        const item = r.product_name
+          ? `${r.product_name} • ${r.size || '-'} / ${r.color || '-'}`
+          : (r.variant_id ? `Variant #${r.variant_id}` : '-');
+
+        const qtyCell = (r.quantity == null) ? '-' : r.quantity;
+        const unitCell = (r.unit_cost == null) ? '-' : formatCurrency(r.unit_cost);
+        const totalCell = (r.total_cost == null) ? '-' : formatCurrency(r.total_cost);
+
+        return `
+          <tr>
+            <td>${escapeHtml(formatDateTime(r.purchase_date))}</td>
+            <td>${escapeHtml(r.supplier_name || '-')}</td>
+            <td>${escapeHtml(item)}</td>
+            <td>${escapeHtml(String(qtyCell))}</td>
+            <td>${escapeHtml(String(unitCell))}</td>
+            <td>${escapeHtml(String(totalCell))}</td>
+            <td>${escapeHtml(r.notes || '')}</td>
+          </tr>
+        `;
+      }).join('');
+
+    } catch (e) {
+      console.error('Purchases error:', e);
+      toast('Error', 'Failed to load purchases', 'bad');
+    }
+  }
+
+  // Wire events
+  if (qty) qty.addEventListener('input', calcTotal);
+  if (unitCost) unitCost.addEventListener('input', calcTotal);
+
+  const refreshVariants = qs('#refreshVariants');
+  if (refreshVariants) refreshVariants.addEventListener('click', loadVariants);
+
+  const refreshPurchases = qs('#refreshPurchases');
+  if (refreshPurchases) refreshPurchases.addEventListener('click', loadPurchases);
+
+  const purchaseForm = qs('#purchaseForm');
+  if (purchaseForm) {
+    purchaseForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const payload = {
+        supplier_name: (supplierName?.value || '').trim(),
+        variant_id: Number(variantSelect?.value),
+        quantity: Number(qty?.value),
+        unit_cost: Number(unitCost?.value),
+        notes: (notes?.value || '').trim(),
+      };
+
+      if (!payload.supplier_name) {
+        toast('Missing', 'Please enter supplier name', 'bad');
+        return;
+      }
+      if (!payload.variant_id) {
+        toast('Missing', 'Please choose an item', 'bad');
+        return;
+      }
+      if (!payload.quantity || payload.quantity <= 0) {
+        toast('Missing', 'Quantity must be > 0', 'bad');
+        return;
+      }
+      if (Number.isNaN(payload.unit_cost) || payload.unit_cost < 0) {
+        toast('Missing', 'Unit cost must be >= 0', 'bad');
+        return;
+      }
+
+      try {
+        await API.createPurchase(payload);
+        toast('Added', 'Purchase recorded and stock updated', 'ok');
+
+        // reset minimal fields
+        if (qty) qty.value = '1';
+        if (unitCost) unitCost.value = '';
+        if (notes) notes.value = '';
+        calcTotal();
+
+        await loadPurchases();
+        await loadVariants();
+
+      } catch (err) {
+        console.error('Create purchase error:', err);
+        toast('Error', err.message || 'Failed to add purchase', 'bad');
+      }
+    });
+  }
+
+  calcTotal();
+  await loadVariants();
+  await loadPurchases();
 }
