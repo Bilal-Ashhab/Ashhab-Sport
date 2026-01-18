@@ -245,6 +245,15 @@ button,input,select,textarea{font:inherit}
   outline:0;
 }
 
+/* FIX: Dropdown option text visibility */
+.select select option,
+.field select option,
+select option {
+  background: #0a0e16;
+  color: #eaf0ff;
+  padding: 10px;
+}
+
 .section{
   padding:22px 0;
 }
