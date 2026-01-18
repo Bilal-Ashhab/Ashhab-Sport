@@ -1195,6 +1195,102 @@ def api_update_stock(variant_id):
         conn.close()
 
 
+@app.route("/api/customer/profile", methods=["GET"])
+def api_get_customer_profile():
+    """Get current customer's profile information"""
+    if 'user_id' not in session or session.get('user_type') != 'customer':
+        return jsonify({"error": "Not logged in as customer"}), 401
+
+    customer_id = session['user_id']
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT customer_id, first_name, last_name, email, phone, address, registration_date
+            FROM customer
+            WHERE customer_id = %s
+        """, (customer_id,))
+        customer = cur.fetchone()
+        cur.close()
+
+        if not customer:
+            return jsonify({"error": "Customer not found"}), 404
+
+        return jsonify(customer)
+    except Exception as e:
+        print(f"Get profile error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/customer/profile", methods=["PUT"])
+def api_update_customer_profile():
+    """Update current customer's profile information"""
+    if 'user_id' not in session or session.get('user_type') != 'customer':
+        return jsonify({"error": "Not logged in as customer"}), 401
+
+    customer_id = session['user_id']
+    data = request.get_json()
+
+    # Extract fields
+    first_name = data.get('first_name', '').strip()
+    last_name = data.get('last_name', '').strip()
+    email = data.get('email', '').strip()
+    phone = data.get('phone', '').strip()
+    address = data.get('address', '').strip()
+    password = data.get('password', '').strip()  # Optional - only update if provided
+
+    # Validation
+    if not first_name or not last_name or not email:
+        return jsonify({"error": "First name, last name, and email are required"}), 400
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        # Check if email is already used by another customer
+        cur.execute("""
+            SELECT customer_id FROM customer 
+            WHERE email = %s AND customer_id != %s
+        """, (email, customer_id))
+        existing = cur.fetchone()
+        if existing:
+            return jsonify({"error": "Email is already in use by another account"}), 400
+
+        # Build update query
+        if password:
+            # Update with new password
+            cur.execute("""
+                UPDATE customer 
+                SET first_name = %s, last_name = %s, email = %s, 
+                    phone = %s, address = %s, password = %s
+                WHERE customer_id = %s
+            """, (first_name, last_name, email, phone, address, password, customer_id))
+        else:
+            # Update without changing password
+            cur.execute("""
+                UPDATE customer 
+                SET first_name = %s, last_name = %s, email = %s, 
+                    phone = %s, address = %s
+                WHERE customer_id = %s
+            """, (first_name, last_name, email, phone, address, customer_id))
+
+        conn.commit()
+        cur.close()
+
+        # Update session with new name
+        session['user_name'] = f"{first_name} {last_name}"
+
+        return jsonify({"success": True, "message": "Profile updated successfully"})
+    except Exception as e:
+        conn.rollback()
+        print(f"Update profile error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 # ============= PURCHASES (ADMIN) =============
 

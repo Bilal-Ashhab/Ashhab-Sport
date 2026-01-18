@@ -109,6 +109,75 @@ async function renderOrders(){
   }
 }
 
+// =====================
+// Profile Edit Functions
+// =====================
+
+async function loadProfile() {
+  try {
+    const profile = await API.getCustomerProfile();
+
+    qs("#profFirstName").value = profile.first_name || "";
+    qs("#profLastName").value = profile.last_name || "";
+    qs("#profEmail").value = profile.email || "";
+    qs("#profPhone").value = profile.phone || "";
+    qs("#profAddress").value = profile.address || "";
+    qs("#profPassword").value = ""; // Always clear password field
+  } catch (e) {
+    toast("Error", "Failed to load profile", "bad");
+  }
+}
+
+function showProfilePanel() {
+  const panel = qs("#profilePanel");
+  if (panel) {
+    panel.style.display = "block";
+    loadProfile();
+  }
+}
+
+function hideProfilePanel() {
+  const panel = qs("#profilePanel");
+  if (panel) {
+    panel.style.display = "none";
+  }
+}
+
+async function saveProfile(e) {
+  e.preventDefault();
+
+  const data = {
+    first_name: qs("#profFirstName").value.trim(),
+    last_name: qs("#profLastName").value.trim(),
+    email: qs("#profEmail").value.trim(),
+    phone: qs("#profPhone").value.trim(),
+    address: qs("#profAddress").value.trim()
+  };
+
+  // Only include password if user entered a new one
+  const newPassword = qs("#profPassword").value;
+  if (newPassword) {
+    data.password = newPassword;
+  }
+
+  // Validation
+  if (!data.first_name || !data.last_name || !data.email) {
+    toast("Missing fields", "First name, last name, and email are required.", "bad");
+    return;
+  }
+
+  try {
+    await API.updateCustomerProfile(data);
+    toast("Saved", "Profile updated successfully.", "ok");
+    hideProfilePanel();
+
+    // Update the welcome message with new name
+    qs("#who").textContent = `${data.first_name} ${data.last_name}`;
+  } catch (e) {
+    toast("Error", e.message, "bad");
+  }
+}
+
 export async function initCustomer(){
   const sess = await requireRole("customer");
   if (!sess) return;
@@ -122,6 +191,28 @@ export async function initCustomer(){
   renderOrders();
 
   qs("#btnCheckout").addEventListener("click", ()=>checkout());
+
+  // Wire profile edit buttons
+  const btnEditProfile = qs("#btnEditProfile");
+  const btnCloseProfile = qs("#btnCloseProfile");
+  const btnCancelProfile = qs("#btnCancelProfile");
+  const profileForm = qs("#profileForm");
+
+  if (btnEditProfile) {
+    btnEditProfile.addEventListener("click", showProfilePanel);
+  }
+
+  if (btnCloseProfile) {
+    btnCloseProfile.addEventListener("click", hideProfilePanel);
+  }
+
+  if (btnCancelProfile) {
+    btnCancelProfile.addEventListener("click", hideProfilePanel);
+  }
+
+  if (profileForm) {
+    profileForm.addEventListener("submit", saveProfile);
+  }
 }
 
 // =====================

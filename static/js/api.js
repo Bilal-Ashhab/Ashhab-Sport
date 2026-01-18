@@ -87,6 +87,18 @@ export const API = {
     });
   },
 
+  // Customer Profile
+  async getCustomerProfile() {
+    return this.request('/api/customer/profile');
+  },
+
+  async updateCustomerProfile(data) {
+    return this.request('/api/customer/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
   // Cart
   async getCart() {
     return this.request('/api/cart');

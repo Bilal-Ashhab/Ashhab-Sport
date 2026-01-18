@@ -18,7 +18,57 @@
           <h2 style="margin:0">Customer Dashboard</h2>
           <div class="muted">Welcome, <span id="who"></span></div>
         </div>
-        <a class="btn" href="payment-info.html">💳 Payment Methods</a>
+        <div class="row" style="gap:10px">
+          <button class="btn" id="btnEditProfile">👤 Edit Profile</button>
+          <a class="btn" href="payment-info.html">💳 Payment Methods</a>
+        </div>
+      </div>
+
+      <!-- Profile Edit Panel (hidden by default) -->
+      <div id="profilePanel" class="panel" style="display:none;margin-bottom:14px">
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">Edit Profile</h3>
+          <button class="btn ghost" id="btnCloseProfile">✕ Close</button>
+        </div>
+
+        <form id="profileForm" class="form">
+          <div class="split">
+            <div class="field">
+              <label>First Name</label>
+              <input id="profFirstName" required />
+            </div>
+            <div class="field">
+              <label>Last Name</label>
+              <input id="profLastName" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Email</label>
+            <input id="profEmail" type="email" required />
+          </div>
+
+          <div class="split">
+            <div class="field">
+              <label>Phone</label>
+              <input id="profPhone" placeholder="059X..." />
+            </div>
+            <div class="field">
+              <label>Address</label>
+              <input id="profAddress" placeholder="City, street..." />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>New Password (leave blank to keep current)</label>
+            <input id="profPassword" type="password" placeholder="Enter new password..." />
+          </div>
+
+          <div class="row" style="gap:10px">
+            <button class="btn primary" type="submit">Save Changes</button>
+            <button class="btn" type="button" id="btnCancelProfile">Cancel</button>
+          </div>
+        </form>
       </div>
 
       <div class="split" style="margin-top:14px">
