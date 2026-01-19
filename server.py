@@ -35,7 +35,6 @@ def _table_exists(cur, table_name: str) -> bool:
         return False
 
 
-
 def _get_columns(cur, table_name: str) -> set:
     cur.execute("""
         SELECT COLUMN_NAME
@@ -49,7 +48,6 @@ def _get_columns(cur, table_name: str) -> set:
         if name is not None:
             cols.add(str(name).lower())
     return cols
-
 
 
 def _ensure_purchase_schema(cur):
@@ -124,7 +122,6 @@ def _ensure_purchase_schema(cur):
             """)
 
 
-
 # ============= HTML PAGE ROUTES =============
 
 @app.route("/")
@@ -196,6 +193,11 @@ def admin_purchases():
 @app.route("/admin-orders.html")
 def admin_orders():
     return render_template("admin-orders.html")
+
+
+@app.route("/admin-suppliers.html")
+def admin_suppliers():
+    return render_template("admin-suppliers.html")
 
 
 @app.route("/order.html")
@@ -1195,6 +1197,8 @@ def api_update_stock(variant_id):
         conn.close()
 
 
+# ============= CUSTOMER PROFILE =============
+
 @app.route("/api/customer/profile", methods=["GET"])
 def api_get_customer_profile():
     """Get current customer's profile information"""
@@ -1234,15 +1238,13 @@ def api_update_customer_profile():
     customer_id = session['user_id']
     data = request.get_json()
 
-    # Extract fields
     first_name = data.get('first_name', '').strip()
     last_name = data.get('last_name', '').strip()
     email = data.get('email', '').strip()
     phone = data.get('phone', '').strip()
     address = data.get('address', '').strip()
-    password = data.get('password', '').strip()  # Optional - only update if provided
+    password = data.get('password', '').strip()
 
-    # Validation
     if not first_name or not last_name or not email:
         return jsonify({"error": "First name, last name, and email are required"}), 400
 
@@ -1250,7 +1252,6 @@ def api_update_customer_profile():
     try:
         cur = conn.cursor(dictionary=True)
 
-        # Check if email is already used by another customer
         cur.execute("""
             SELECT customer_id FROM customer 
             WHERE email = %s AND customer_id != %s
@@ -1259,9 +1260,7 @@ def api_update_customer_profile():
         if existing:
             return jsonify({"error": "Email is already in use by another account"}), 400
 
-        # Build update query
         if password:
-            # Update with new password
             cur.execute("""
                 UPDATE customer 
                 SET first_name = %s, last_name = %s, email = %s, 
@@ -1269,7 +1268,6 @@ def api_update_customer_profile():
                 WHERE customer_id = %s
             """, (first_name, last_name, email, phone, address, password, customer_id))
         else:
-            # Update without changing password
             cur.execute("""
                 UPDATE customer 
                 SET first_name = %s, last_name = %s, email = %s, 
@@ -1280,7 +1278,6 @@ def api_update_customer_profile():
         conn.commit()
         cur.close()
 
-        # Update session with new name
         session['user_name'] = f"{first_name} {last_name}"
 
         return jsonify({"success": True, "message": "Profile updated successfully"})
@@ -1291,6 +1288,227 @@ def api_update_customer_profile():
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
+
+# ============= EMPLOYEE PROFILE =============
+
+@app.route("/api/employee/profile", methods=["GET"])
+def api_get_employee_profile():
+    """Get current employee's profile information"""
+    if 'user_id' not in session or session.get('user_type') != 'employee':
+        return jsonify({"error": "Not logged in as employee"}), 401
+
+    employee_id = session['user_id']
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT employee_id, first_name, last_name, email, username, phone, role, salary, hire_date
+            FROM employee
+            WHERE employee_id = %s
+        """, (employee_id,))
+        employee = cur.fetchone()
+        cur.close()
+
+        if not employee:
+            return jsonify({"error": "Employee not found"}), 404
+
+        if employee.get('salary'):
+            employee['salary'] = float(employee['salary'])
+
+        return jsonify(employee)
+    except Exception as e:
+        print(f"Get employee profile error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/employee/profile", methods=["PUT"])
+def api_update_employee_profile():
+    """Update current employee's profile information"""
+    if 'user_id' not in session or session.get('user_type') != 'employee':
+        return jsonify({"error": "Not logged in as employee"}), 401
+
+    employee_id = session['user_id']
+    data = request.get_json()
+
+    first_name = data.get('first_name', '').strip()
+    last_name = data.get('last_name', '').strip()
+    email = data.get('email', '').strip()
+    phone = data.get('phone', '').strip()
+    password = data.get('password', '').strip()
+
+    if not first_name or not last_name or not email:
+        return jsonify({"error": "First name, last name, and email are required"}), 400
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT employee_id FROM employee 
+            WHERE email = %s AND employee_id != %s
+        """, (email, employee_id))
+        existing = cur.fetchone()
+        if existing:
+            return jsonify({"error": "Email is already in use by another account"}), 400
+
+        if password:
+            cur.execute("""
+                UPDATE employee 
+                SET first_name = %s, last_name = %s, email = %s, phone = %s, password = %s
+                WHERE employee_id = %s
+            """, (first_name, last_name, email, phone, password, employee_id))
+        else:
+            cur.execute("""
+                UPDATE employee 
+                SET first_name = %s, last_name = %s, email = %s, phone = %s
+                WHERE employee_id = %s
+            """, (first_name, last_name, email, phone, employee_id))
+
+        conn.commit()
+        cur.close()
+
+        session['user_name'] = f"{first_name} {last_name}"
+
+        return jsonify({"success": True, "message": "Profile updated successfully"})
+    except Exception as e:
+        conn.rollback()
+        print(f"Update employee profile error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+# ============= SUPPLIERS (ADMIN) =============
+
+@app.route("/api/suppliers", methods=["GET"])
+def api_get_suppliers():
+    """Get all suppliers (admin only)"""
+    if 'user_id' not in session or session.get('user_role') != 'ADMIN':
+        return jsonify({"error": "Admin only"}), 401
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        # Ensure supplier table exists
+        _ensure_purchase_schema(cur)
+
+        cur.execute("""
+            SELECT supplier_id, supplier_name, phone, email, address
+            FROM supplier
+            ORDER BY supplier_name
+        """)
+        suppliers = cur.fetchall()
+        cur.close()
+        return jsonify(suppliers)
+    except Exception as e:
+        print(f"Get suppliers error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/suppliers", methods=["POST"])
+def api_create_supplier():
+    """Create a new supplier (admin only)"""
+    if 'user_id' not in session or session.get('user_role') != 'ADMIN':
+        return jsonify({"error": "Admin only"}), 401
+
+    data = request.get_json()
+    supplier_name = data.get('supplier_name', '').strip()
+    phone = data.get('phone', '').strip()
+    email = data.get('email', '').strip()
+    address = data.get('address', '').strip()
+
+    if not supplier_name:
+        return jsonify({"error": "Supplier name is required"}), 400
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+
+        # Ensure supplier table exists
+        _ensure_purchase_schema(cur)
+
+        cur.execute("""
+            INSERT INTO supplier (supplier_name, phone, email, address)
+            VALUES (%s, %s, %s, %s)
+        """, (supplier_name, phone or None, email or None, address or None))
+        conn.commit()
+        supplier_id = cur.lastrowid
+        cur.close()
+        return jsonify({"success": True, "supplier_id": supplier_id})
+    except Exception as e:
+        conn.rollback()
+        print(f"Create supplier error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/suppliers/<int:supplier_id>", methods=["PUT"])
+def api_update_supplier(supplier_id):
+    """Update a supplier (admin only)"""
+    if 'user_id' not in session or session.get('user_role') != 'ADMIN':
+        return jsonify({"error": "Admin only"}), 401
+
+    data = request.get_json()
+    supplier_name = data.get('supplier_name', '').strip()
+    phone = data.get('phone', '').strip()
+    email = data.get('email', '').strip()
+    address = data.get('address', '').strip()
+
+    if not supplier_name:
+        return jsonify({"error": "Supplier name is required"}), 400
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE supplier 
+            SET supplier_name = %s, phone = %s, email = %s, address = %s
+            WHERE supplier_id = %s
+        """, (supplier_name, phone or None, email or None, address or None, supplier_id))
+        conn.commit()
+        cur.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        print(f"Update supplier error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/suppliers/<int:supplier_id>", methods=["DELETE"])
+def api_delete_supplier(supplier_id):
+    """Delete a supplier (admin only)"""
+    if 'user_id' not in session or session.get('user_role') != 'ADMIN':
+        return jsonify({"error": "Admin only"}), 401
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM supplier WHERE supplier_id = %s", (supplier_id,))
+        conn.commit()
+        cur.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        print(f"Delete supplier error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
 
 # ============= PURCHASES (ADMIN) =============
 
@@ -1311,8 +1529,10 @@ def api_get_purchases():
         po_cols = _get_columns(cur, "purchase_order")
         has_pod = _table_exists(cur, "purchase_order_detail")
 
-        pk = "purchase_id" if "purchase_id" in po_cols else ("purchase_order_id" if "purchase_order_id" in po_cols else "id")
-        date_col = "purchase_date" if "purchase_date" in po_cols else ("order_date" if "order_date" in po_cols else "created_at")
+        pk = "purchase_id" if "purchase_id" in po_cols else (
+            "purchase_order_id" if "purchase_order_id" in po_cols else "id")
+        date_col = "purchase_date" if "purchase_date" in po_cols else (
+            "order_date" if "order_date" in po_cols else "created_at")
 
         supplier_name_col = "supplier_name" if "supplier_name" in po_cols else None
         supplier_id_col = "supplier_id" if "supplier_id" in po_cols else None
@@ -1334,9 +1554,11 @@ def api_get_purchases():
 
         if has_pod:
             pod_cols = _get_columns(cur, "purchase_order_detail")
-            pod_fk = "purchase_id" if "purchase_id" in pod_cols else ("purchase_order_id" if "purchase_order_id" in pod_cols else pk)
+            pod_fk = "purchase_id" if "purchase_id" in pod_cols else (
+                "purchase_order_id" if "purchase_order_id" in pod_cols else pk)
             qty_col = "quantity" if "quantity" in pod_cols else ("qty" if "qty" in pod_cols else "quantity")
-            unit_col = "price" if "price" in pod_cols else ("unit_cost" if "unit_cost" in pod_cols else ("cost" if "cost" in pod_cols else ("unit_price" if "unit_price" in pod_cols else "unit_cost")))
+            unit_col = "price" if "price" in pod_cols else ("unit_cost" if "unit_cost" in pod_cols else (
+                "cost" if "cost" in pod_cols else ("unit_price" if "unit_price" in pod_cols else "unit_cost")))
 
             joins.append(f"LEFT JOIN purchase_order_detail pod ON pod.{pod_fk} = po.{pk}")
             joins.append("LEFT JOIN product_variant v ON v.variant_id = pod.variant_id")
@@ -1360,7 +1582,8 @@ def api_get_purchases():
                 "NULL AS color",
             ])
 
-        sql = "SELECT " + ", ".join(select_fields) + " FROM purchase_order po " + " ".join(joins) + f" ORDER BY po.{date_col} DESC, po.{pk} DESC LIMIT 200"
+        sql = "SELECT " + ", ".join(select_fields) + " FROM purchase_order po " + " ".join(
+            joins) + f" ORDER BY po.{date_col} DESC, po.{pk} DESC LIMIT 200"
         cur.execute(sql)
         rows = cur.fetchall()
 
@@ -1391,19 +1614,32 @@ def api_get_purchases():
 
 @app.route("/api/purchases", methods=["POST"])
 def api_create_purchase():
-    """Create a purchase and add its quantity to stock (admin only)."""
+    """Create a purchase and add its quantity to stock (admin only).
+
+    Supports both:
+    - supplier_id (new way - dropdown selection)
+    - supplier_name (old way - manual entry, for backwards compatibility)
+    """
     if 'user_id' not in session or session.get('user_role') != 'ADMIN':
         return jsonify({"error": "Admin only"}), 401
 
     data = request.get_json() or {}
+
+    # Support both supplier_id (new) and supplier_name (legacy)
+    supplier_id = data.get('supplier_id')
     supplier_name = (data.get('supplier_name') or '').strip()
+
     variant_id = data.get('variant_id')
     quantity = data.get('quantity')
     unit_cost = data.get('unit_cost')
     notes = (data.get('notes') or '').strip()
 
-    if not supplier_name or variant_id is None or quantity is None or unit_cost is None:
-        return jsonify({"error": "Missing fields"}), 400
+    # Must have either supplier_id or supplier_name
+    if not supplier_id and not supplier_name:
+        return jsonify({"error": "Supplier is required"}), 400
+
+    if variant_id is None or quantity is None or unit_cost is None:
+        return jsonify({"error": "Missing required fields (variant_id, quantity, unit_cost)"}), 400
 
     try:
         variant_id = int(variant_id)
@@ -1413,8 +1649,8 @@ def api_create_purchase():
         unit_cost = Decimal(str(unit_cost))
         if unit_cost < 0:
             return jsonify({"error": "Unit cost must be >= 0"}), 400
-    except Exception:
-        return jsonify({"error": "Invalid data"}), 400
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid numeric values"}), 400
 
     line_total = unit_cost * Decimal(quantity)
 
@@ -1422,102 +1658,81 @@ def api_create_purchase():
     try:
         cur = conn.cursor(dictionary=True)
 
-        # Ensure tables exist (won't overwrite if the user already has them)
+        # Ensure purchase schema
         _ensure_purchase_schema(cur)
 
-        po_cols = _get_columns(cur, "purchase_order")
-        pk = "purchase_id" if "purchase_id" in po_cols else ("purchase_order_id" if "purchase_order_id" in po_cols else "id")
+        # Get supplier_name from supplier_id if needed
+        if supplier_id and not supplier_name:
+            cur.execute("SELECT supplier_name FROM supplier WHERE supplier_id = %s", (supplier_id,))
+            sup = cur.fetchone()
+            if not sup:
+                return jsonify({"error": "Supplier not found"}), 404
+            supplier_name = sup['supplier_name']
 
-        # Decide supplier storage
-        supplier_name_col = "supplier_name" if "supplier_name" in po_cols else None
-        supplier_id_col = "supplier_id" if "supplier_id" in po_cols else None
+        po_cols = _get_columns(cur, "purchase_order")
+        pk = "purchase_id" if "purchase_id" in po_cols else (
+            "purchase_order_id" if "purchase_order_id" in po_cols else "id")
 
         insert_cols = []
         insert_vals = []
         params = []
 
-        if supplier_name_col:
-            insert_cols.append(supplier_name_col)
+        # Supplier name
+        if "supplier_name" in po_cols:
+            insert_cols.append("supplier_name")
             insert_vals.append("%s")
             params.append(supplier_name)
-        elif supplier_id_col:
-            # Map supplier name -> supplier_id
-            _ensure_purchase_schema(cur)
-            sup_cols = _get_columns(cur, "supplier")
-            sup_name_col = "supplier_name" if "supplier_name" in sup_cols else ("name" if "name" in sup_cols else None)
-            if not sup_name_col:
-                return jsonify({"error": "Supplier table schema not supported"}), 500
 
-            cur.execute(f"SELECT supplier_id FROM supplier WHERE {sup_name_col} = %s", (supplier_name,))
-            row = cur.fetchone()
-            if row:
-                supplier_id = int(row['supplier_id'])
-            else:
-                cur.execute(f"INSERT INTO supplier ({sup_name_col}) VALUES (%s)", (supplier_name,))
-                supplier_id = cur.lastrowid
-
-            insert_cols.append("supplier_id")
-            insert_vals.append("%s")
-            params.append(supplier_id)
-
-        # dates/status when present
-        if 'purchase_date' in po_cols and 'purchase_date' not in insert_cols:
+        # Date columns
+        if 'purchase_date' in po_cols:
             insert_cols.append('purchase_date')
             insert_vals.append('NOW()')
-        elif 'order_date' in po_cols and 'order_date' not in insert_cols:
+        elif 'order_date' in po_cols:
             insert_cols.append('order_date')
             insert_vals.append('CURDATE()')
-        elif 'created_at' in po_cols and 'created_at' not in insert_cols:
-            insert_cols.append('created_at')
-            insert_vals.append('NOW()')
 
-        if 'status' in po_cols and 'status' not in insert_cols:
+        if 'status' in po_cols:
             insert_cols.append('status')
             insert_vals.append('%s')
             params.append('Received')
 
-        # total_cost
         if 'total_cost' in po_cols:
             insert_cols.append('total_cost')
             insert_vals.append('%s')
             params.append(line_total)
 
-        # created_by
-        if 'created_by_role' in po_cols:
-            insert_cols.append('created_by_role')
-            insert_vals.append('%s')
-            params.append(session.get('user_role'))
-        if 'created_by_id' in po_cols:
-            insert_cols.append('created_by_id')
-            insert_vals.append('%s')
-            params.append(session.get('user_id'))
         if 'employee_id' in po_cols:
             insert_cols.append('employee_id')
             insert_vals.append('%s')
             params.append(session.get('user_id'))
+        elif 'created_by_id' in po_cols:
+            insert_cols.append('created_by_id')
+            insert_vals.append('%s')
+            params.append(session.get('user_id'))
+
+        if 'created_by_role' in po_cols:
+            insert_cols.append('created_by_role')
+            insert_vals.append('%s')
+            params.append(session.get('user_role', 'ADMIN'))
 
         if notes and 'notes' in po_cols:
             insert_cols.append('notes')
             insert_vals.append('%s')
             params.append(notes)
 
-        if not insert_cols:
-            return jsonify({"error": "purchase_order table schema not supported"}), 500
-
         sql = f"INSERT INTO purchase_order ({', '.join(insert_cols)}) VALUES ({', '.join(insert_vals)})"
         cur.execute(sql, tuple(params))
         purchase_id = cur.lastrowid
 
-        # Insert purchase line if detail table exists
-        if _table_exists(cur, 'purchase_order_detail'):
-            pod_cols = _get_columns(cur, 'purchase_order_detail')
-            pod_fk = 'purchase_id' if 'purchase_id' in pod_cols else ('purchase_order_id' if 'purchase_order_id' in pod_cols else None)
-            qty_col = 'quantity' if 'quantity' in pod_cols else ('qty' if 'qty' in pod_cols else 'quantity')
-            unit_col = 'price' if 'price' in pod_cols else ('unit_cost' if 'unit_cost' in pod_cols else ('cost' if 'cost' in pod_cols else ('unit_price' if 'unit_price' in pod_cols else 'unit_cost')))
+        # Insert purchase detail
+        if _table_exists(cur, "purchase_order_detail"):
+            pod_cols = _get_columns(cur, "purchase_order_detail")
+            pod_fk = 'purchase_id' if 'purchase_id' in pod_cols else (
+                'purchase_order_id' if 'purchase_order_id' in pod_cols else None)
+            qty_col = 'quantity' if 'quantity' in pod_cols else 'qty'
+            unit_col = 'price' if 'price' in pod_cols else 'unit_cost'
 
-            line_cols = []
-            line_vals = []
-            line_params = []
+            line_cols, line_vals, line_params = [], [], []
 
             if pod_fk:
                 line_cols.append(pod_fk)
@@ -1566,7 +1781,8 @@ def api_create_purchase():
                       (warehouse_id, variant_id, movement_type, qty_change, employee_id, ref_type, ref_id, note)
                     VALUES (%s, %s, 'RECEIPT', %s, %s, 'PURCHASE', %s, %s)
                     """,
-                    (DEFAULT_WAREHOUSE_ID, variant_id, quantity, session.get('user_id'), purchase_id, (notes if notes else None))
+                    (DEFAULT_WAREHOUSE_ID, variant_id, quantity, session.get('user_id'), purchase_id,
+                     (notes if notes else None))
                 )
         except Exception:
             # Don't block the purchase if logging fails
@@ -1577,9 +1793,12 @@ def api_create_purchase():
         return jsonify({"success": True, "purchase_id": purchase_id})
     except Exception as e:
         conn.rollback()
+        print(f"Create purchase error: {e}")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
 
 @app.route("/api/admin/stats", methods=["GET"])
 def api_admin_stats():

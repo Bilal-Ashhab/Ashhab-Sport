@@ -11,8 +11,60 @@
 
   <section class="section">
     <div class="container">
-      <h2 style="margin:0">Employee Dashboard</h2>
-      <div class="muted">Hello, <span id="who"></span></div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div>
+          <h2 style="margin:0">Employee Dashboard</h2>
+          <div class="muted">Hello, <span id="who"></span></div>
+        </div>
+        <button class="btn" id="btnEditProfile">👤 Edit Profile</button>
+      </div>
+
+      <!-- Profile Edit Panel (hidden by default) -->
+      <div id="profilePanel" class="panel" style="display:none;margin-bottom:14px">
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">Edit My Profile</h3>
+          <button class="btn ghost" id="btnCloseProfile">✕ Close</button>
+        </div>
+
+        <form id="profileForm" class="form">
+          <div class="split">
+            <div class="field">
+              <label>First Name *</label>
+              <input id="profFirstName" required />
+            </div>
+            <div class="field">
+              <label>Last Name *</label>
+              <input id="profLastName" required />
+            </div>
+          </div>
+
+          <div class="split">
+            <div class="field">
+              <label>Email *</label>
+              <input id="profEmail" type="email" required />
+            </div>
+            <div class="field">
+              <label>Username</label>
+              <input id="profUsername" readonly style="background:rgba(255,255,255,0.03)" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Phone</label>
+            <input id="profPhone" placeholder="059X..." />
+          </div>
+
+          <div class="field">
+            <label>New Password (leave blank to keep current)</label>
+            <input id="profPassword" type="password" placeholder="Enter new password..." />
+          </div>
+
+          <div class="row" style="gap:10px">
+            <button class="btn primary" type="submit">Save Changes</button>
+            <button class="btn" type="button" id="btnCancelProfile">Cancel</button>
+          </div>
+        </form>
+      </div>
 
       <div class="panel" style="margin-top:14px">
         <h2 style="margin-top:0">Pending Orders</h2>
@@ -56,9 +108,9 @@
   <div id="appFooter"></div>
 
   <script type="module">
-  import { initEmployee } from "{{ url_for('static', filename='js/employee.js') }}";
-  initEmployee();
-</script>
+    import { initEmployee } from "{{ url_for('static', filename='js/employee.js') }}";
+    initEmployee();
+  </script>
 
 </body>
 </html>

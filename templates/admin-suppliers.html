@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ashhab Sport • Manage Suppliers</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div id="appHeader"></div>
+
+  <section class="section">
+    <div class="container">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="margin:0">Manage Suppliers</h2>
+        <a class="btn ghost" href="admin.html">← Back to Dashboard</a>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin-top:0">Add New Supplier</h3>
+
+        <form id="supplierForm" class="form" style="margin-bottom:20px">
+          <div class="split">
+            <div class="field">
+              <label>Supplier Name *</label>
+              <input id="sname" placeholder="e.g., Nike Distribution" required />
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <input id="sphone" placeholder="059X..." />
+            </div>
+          </div>
+          <div class="split">
+            <div class="field">
+              <label>Email</label>
+              <input id="semail" type="email" placeholder="supplier@email.com" />
+            </div>
+            <div class="field">
+              <label>Address</label>
+              <input id="saddress" placeholder="City, street..." />
+            </div>
+          </div>
+          <button class="btn primary" type="submit">Add Supplier</button>
+        </form>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h3 style="margin-top:0">All Suppliers</h3>
+        <div class="field" style="max-width:400px;margin-bottom:12px">
+          <input id="searchSuppliers" placeholder="🔍 Search suppliers..." />
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Supplier Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="suppliersBody"></tbody>
+        </table>
+
+        <div id="noSuppliers" style="text-align:center;padding:40px;display:none">
+          <div class="muted">No suppliers found. Add your first supplier above.</div>
+        </div>
+      </div>
+
+      <!-- Edit Supplier Modal -->
+      <div id="editSupplierModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center">
+        <div class="panel" style="max-width:600px;width:90%;margin:20px">
+          <h3 style="margin-top:0">Edit Supplier</h3>
+          <form id="editSupplierForm" class="form">
+            <input type="hidden" id="editSupplierId" />
+            <div class="field">
+              <label>Supplier Name *</label>
+              <input id="editSupplierName" required />
+            </div>
+            <div class="split">
+              <div class="field">
+                <label>Phone</label>
+                <input id="editSupplierPhone" />
+              </div>
+              <div class="field">
+                <label>Email</label>
+                <input id="editSupplierEmail" type="email" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Address</label>
+              <input id="editSupplierAddress" />
+            </div>
+            <div class="row">
+              <button class="btn primary" type="submit">Update Supplier</button>
+              <button class="btn" type="button" id="cancelSupplierEdit">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="appFooter"></div>
+
+  <script type="module">
+    import { initAdminSuppliers } from "{{ url_for('static', filename='js/admin.js') }}";
+    initAdminSuppliers();
+  </script>
+</body>
+</html>

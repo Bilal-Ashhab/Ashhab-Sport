@@ -99,6 +99,18 @@ export const API = {
     });
   },
 
+  // Employee Profile
+  async getEmployeeProfile() {
+    return this.request('/api/employee/profile');
+  },
+
+  async updateEmployeeProfile(data) {
+    return this.request('/api/employee/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
   // Cart
   async getCart() {
     return this.request('/api/cart');
@@ -167,6 +179,31 @@ export const API = {
 
   async deleteEmployee(employeeId) {
     return this.request(`/api/employees/${employeeId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Suppliers (admin)
+  async getSuppliers() {
+    return this.request('/api/suppliers');
+  },
+
+  async createSupplier(data) {
+    return this.request('/api/suppliers', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateSupplier(supplierId, data) {
+    return this.request(`/api/suppliers/${supplierId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteSupplier(supplierId) {
+    return this.request(`/api/suppliers/${supplierId}`, {
       method: 'DELETE'
     });
   },

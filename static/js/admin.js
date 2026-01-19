@@ -3,6 +3,91 @@ import { injectLayout, wireLogout, toast, formatCurrency, requireRole, escapeHtm
 
 function qs(sel, root=document){ return root.querySelector(sel); }
 
+// =====================
+// Profile Edit Functions (shared by admin pages)
+// =====================
+
+async function loadEmployeeProfile() {
+  try {
+    const profile = await API.getEmployeeProfile();
+
+    const firstNameEl = qs("#profFirstName");
+    const lastNameEl = qs("#profLastName");
+    const emailEl = qs("#profEmail");
+    const usernameEl = qs("#profUsername");
+    const phoneEl = qs("#profPhone");
+    const passwordEl = qs("#profPassword");
+
+    if (firstNameEl) firstNameEl.value = profile.first_name || "";
+    if (lastNameEl) lastNameEl.value = profile.last_name || "";
+    if (emailEl) emailEl.value = profile.email || "";
+    if (usernameEl) usernameEl.value = profile.username || "";
+    if (phoneEl) phoneEl.value = profile.phone || "";
+    if (passwordEl) passwordEl.value = "";
+  } catch (e) {
+    toast("Error", "Failed to load profile", "bad");
+  }
+}
+
+function showProfilePanel() {
+  const panel = qs("#profilePanel");
+  if (panel) {
+    panel.style.display = "block";
+    loadEmployeeProfile();
+  }
+}
+
+function hideProfilePanel() {
+  const panel = qs("#profilePanel");
+  if (panel) {
+    panel.style.display = "none";
+  }
+}
+
+async function saveEmployeeProfile(e) {
+  e.preventDefault();
+
+  const data = {
+    first_name: qs("#profFirstName")?.value.trim() || "",
+    last_name: qs("#profLastName")?.value.trim() || "",
+    email: qs("#profEmail")?.value.trim() || "",
+    phone: qs("#profPhone")?.value.trim() || ""
+  };
+
+  const newPassword = qs("#profPassword")?.value;
+  if (newPassword) {
+    data.password = newPassword;
+  }
+
+  if (!data.first_name || !data.last_name || !data.email) {
+    toast("Missing fields", "First name, last name, and email are required.", "bad");
+    return;
+  }
+
+  try {
+    await API.updateEmployeeProfile(data);
+    toast("Saved", "Profile updated successfully.", "ok");
+    hideProfilePanel();
+
+    const whoEl = qs("#who");
+    if (whoEl) whoEl.textContent = `${data.first_name} ${data.last_name}`;
+  } catch (e) {
+    toast("Error", e.message, "bad");
+  }
+}
+
+function wireProfileButtons() {
+  const btnEditProfile = qs("#btnEditProfile");
+  const btnCloseProfile = qs("#btnCloseProfile");
+  const btnCancelProfile = qs("#btnCancelProfile");
+  const profileForm = qs("#profileForm");
+
+  if (btnEditProfile) btnEditProfile.addEventListener("click", showProfilePanel);
+  if (btnCloseProfile) btnCloseProfile.addEventListener("click", hideProfilePanel);
+  if (btnCancelProfile) btnCancelProfile.addEventListener("click", hideProfilePanel);
+  if (profileForm) profileForm.addEventListener("submit", saveEmployeeProfile);
+}
+
 // ==================== DASHBOARD ====================
 export async function initAdminDashboard(){
   const sess = await requireRole("admin");
@@ -10,6 +95,7 @@ export async function initAdminDashboard(){
 
   await injectLayout();
   wireLogout();
+  wireProfileButtons();
 
   qs("#who").textContent = sess.name;
 
@@ -238,35 +324,34 @@ export async function initAdminProducts(){
           '<td>' + escapeHtml(p.category) + '</td>' +
           '<td><strong>' + formatCurrency(p.price) + '</strong></td>' +
           '<td>' + featuredText + '</td>' +
-          '<td>' + p.variants.length + ' variants</td>' +
+          '<td>' + (p.variants ? p.variants.length : 0) + ' variants</td>' +
           '<td>' +
-            '<button class="btn" data-edit-product="' + p.product_id + '" data-product-name="' +
-            escapeHtml(p.product_name) + '" data-product-price="' + p.price + '">Edit Price</button> ' +
-            '<a class="btn ghost" href="product.html?id=' + p.product_id + '">View</a> ' +
-            '<button class="btn danger" data-del="' + p.product_id + '">Delete</button>' +
+            '<button class="btn" data-editprod="' + p.product_id + '" data-name="' +
+            escapeHtml(p.product_name) + '" data-price="' + p.price + '">Edit Price</button> ' +
+            '<button class="btn danger" data-delprod="' + p.product_id + '">Delete</button>' +
           '</td>' +
         '</tr>';
       }).join("");
 
-      // Wire edit price buttons
-      tbody.querySelectorAll("button[data-edit-product]").forEach(btn => {
+      // Wire edit buttons
+      tbody.querySelectorAll("button[data-editprod]").forEach(btn => {
         btn.addEventListener("click", () => {
-          currentEditProductId = Number(btn.dataset.editProduct);
-          qs("#editProductName").value = btn.dataset.productName;
-          qs("#editProductPrice").value = btn.dataset.productPrice;
+          currentEditProductId = Number(btn.dataset.editprod);
+          qs("#editProductName").value = btn.dataset.name;
+          qs("#editProductPrice").value = btn.dataset.price;
           qs("#editProductModal").style.display = "flex";
         });
       });
 
       // Wire delete buttons
-      tbody.querySelectorAll("button[data-del]").forEach(btn => {
+      tbody.querySelectorAll("button[data-delprod]").forEach(btn => {
         btn.addEventListener("click", async () => {
-          if (!confirm("Delete this product? This will also delete all variants.")) return;
+          if (!confirm("Are you sure you want to delete this product?")) return;
 
           try {
-            await API.deleteProduct(Number(btn.dataset.del));
+            await API.deleteProduct(Number(btn.dataset.delprod));
             toast("Deleted", "Product removed.", "ok");
-            renderProducts(filter);
+            renderProducts(qs("#searchProducts")?.value || "");
           } catch (e) {
             toast("Error", e.message, "bad");
           }
@@ -293,7 +378,7 @@ export async function initAdminProducts(){
     };
 
     if (!data.product_name || !data.price) {
-      toast("Missing fields", "Name and price are required.", "bad");
+      toast("Missing fields", "Fill product name and price.", "bad");
       return;
     }
 
@@ -307,15 +392,20 @@ export async function initAdminProducts(){
     }
   });
 
-  // Edit product price form
-  const editProductForm = qs("#editProductForm");
-  editProductForm.addEventListener("submit", async (e) => {
+  // Edit product form
+  const editForm = qs("#editProductForm");
+  editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const price = parseFloat(qs("#editProductPrice").value);
+    const product = allProducts.find(p => p.product_id === currentEditProductId);
+
+    if (!product) {
+      toast("Error", "Product not found", "bad");
+      return;
+    }
 
     try {
-      const product = allProducts.find(p => p.product_id === currentEditProductId);
       await API.updateProduct(currentEditProductId, {
         product_name: product.product_name,
         description: product.description,
@@ -326,23 +416,21 @@ export async function initAdminProducts(){
       });
       qs("#editProductModal").style.display = "none";
       toast("Updated", "Price updated successfully.", "ok");
-      renderProducts("");
+      renderProducts(qs("#searchProducts")?.value || "");
     } catch (e) {
       toast("Error", e.message, "bad");
     }
   });
 
-  // Cancel product edit
+  // Cancel edit
   qs("#cancelProductEdit").addEventListener("click", () => {
     qs("#editProductModal").style.display = "none";
   });
 
-  const searchInput = qs("#searchProducts");
-  if (searchInput) {
-    searchInput.addEventListener("input", (e) => {
-      renderProducts(e.target.value);
-    });
-  }
+  // Search
+  qs("#searchProducts").addEventListener("input", (e) => {
+    renderProducts(e.target.value);
+  });
 
   renderProducts("");
 }
@@ -365,34 +453,37 @@ export async function initAdminStock(){
       const lowStockBody = qs("#lowStockBody");
 
       const filtered = filter ?
-        allStock.filter(s => s.product_name.toLowerCase().includes(filter.toLowerCase()))
-        : allStock;
+        allStock.filter(s =>
+          s.product_name.toLowerCase().includes(filter.toLowerCase())
+        ) : allStock;
 
       tbody.innerHTML = filtered.map(s => {
+        const stockColor = s.stock_quantity < 5 ? 'var(--bad)' :
+          s.stock_quantity < 15 ? 'var(--warn)' : 'var(--ok)';
+
         return '<tr>' +
-          '<td>' +
-            '<strong>#' + s.product_id + '</strong> ' +
-            '<div class="small">' + escapeHtml(s.product_name) + '</div>' +
-          '</td>' +
-          '<td>' + escapeHtml(s.size) + ' / ' + escapeHtml(s.color) + '</td>' +
+          '<td><strong>' + escapeHtml(s.product_name) + '</strong></td>' +
+          '<td>' + escapeHtml(s.size || '-') + ' / ' + escapeHtml(s.color || '-') + '</td>' +
           '<td>' + escapeHtml(s.category) + '</td>' +
           '<td>' + formatCurrency(s.price) + '</td>' +
-          '<td><strong>' + s.stock_quantity + '</strong></td>' +
+          '<td><strong style="color:' + stockColor + '">' + s.stock_quantity + '</strong></td>' +
         '</tr>';
       }).join("");
 
-      // Low stock alert
+      // Low stock items
       const lowStock = allStock.filter(s => s.stock_quantity < 5);
-      if (lowStock.length === 0) {
-        lowStockBody.innerHTML = '<tr><td colspan="3" class="muted">All products are well stocked! 🎉</td></tr>';
-      } else {
-        lowStockBody.innerHTML = lowStock.map(s => {
-          return '<tr style="background:rgba(255,204,102,0.1)">' +
-            '<td><strong>' + escapeHtml(s.product_name) + '</strong></td>' +
-            '<td>' + escapeHtml(s.size) + ' / ' + escapeHtml(s.color) + '</td>' +
-            '<td><strong style="color:var(--warn)">' + s.stock_quantity + '</strong></td>' +
-          '</tr>';
-        }).join("");
+      if (lowStockBody) {
+        if (!lowStock.length) {
+          lowStockBody.innerHTML = '<tr><td colspan="3" class="muted">All items have sufficient stock.</td></tr>';
+        } else {
+          lowStockBody.innerHTML = lowStock.map(s => {
+            return '<tr>' +
+              '<td><strong>' + escapeHtml(s.product_name) + '</strong></td>' +
+              '<td>' + escapeHtml(s.size || '-') + ' / ' + escapeHtml(s.color || '-') + '</td>' +
+              '<td><strong style="color:var(--bad)">' + s.stock_quantity + '</strong></td>' +
+            '</tr>';
+          }).join("");
+        }
       }
     } catch (e) {
       console.error("Stock error:", e);
@@ -400,12 +491,10 @@ export async function initAdminStock(){
     }
   }
 
-  const searchInput = qs("#searchStock");
-  if (searchInput) {
-    searchInput.addEventListener("input", (e) => {
-      renderStock(e.target.value);
-    });
-  }
+  // Search
+  qs("#searchStock")?.addEventListener("input", (e) => {
+    renderStock(e.target.value);
+  });
 
   renderStock("");
 }
@@ -418,13 +507,14 @@ export async function initAdminOrders(){
   await injectLayout();
   wireLogout();
 
-  let allOrders = [];
-
-  async function acceptOrder(orderId){
+  async function acceptOrder(orderId) {
     try {
       await API.acceptOrder(orderId);
       toast("Accepted", `Order #${orderId} accepted. Stock updated.`, "ok");
-      renderOrders(filterStatus ? filterStatus.value : "All", searchOrder ? searchOrder.value : "");
+      renderOrders(
+        qs("#filterStatus")?.value || "All",
+        qs("#searchOrder")?.value || ""
+      );
     } catch (e) {
       toast("Error", e.message, "bad");
     }
@@ -432,30 +522,29 @@ export async function initAdminOrders(){
 
   async function renderOrders(statusFilter, searchFilter){
     statusFilter = statusFilter || "All";
-    searchFilter = searchFilter || "";
+    searchFilter = (searchFilter || "").toLowerCase();
 
     try {
-      allOrders = await API.getOrders();
+      const orders = await API.getOrders();
       const tbody = qs("#ordersBody");
       const noOrders = qs("#noOrders");
 
-      let filtered = allOrders;
+      let filtered = orders;
 
       if (statusFilter !== "All") {
         filtered = filtered.filter(o => o.status === statusFilter);
       }
 
       if (searchFilter) {
-        const search = searchFilter.toLowerCase();
         filtered = filtered.filter(o => {
-          const customerName = (o.customer_first || '') + ' ' + (o.customer_last || '');
-          return String(o.order_id).includes(search) ||
-                 customerName.toLowerCase().includes(search);
+          const customerName = ((o.customer_first || '') + ' ' + (o.customer_last || '')).toLowerCase();
+          const orderId = String(o.order_id);
+          return customerName.includes(searchFilter) || orderId.includes(searchFilter);
         });
       }
 
-      if (filtered.length === 0) {
-        tbody.innerHTML = "";
+      if (!filtered.length) {
+        tbody.innerHTML = '';
         noOrders.style.display = "block";
       } else {
         noOrders.style.display = "none";
@@ -492,7 +581,7 @@ export async function initAdminOrders(){
           '</tr>';
         }).join("");
 
-        // Wire accept buttons (admins can accept like employees)
+        // Wire accept buttons
         tbody.querySelectorAll('button[data-accept]').forEach(btn => {
           btn.addEventListener('click', () => {
             acceptOrder(Number(btn.dataset.accept));
@@ -522,6 +611,161 @@ export async function initAdminOrders(){
 
   renderOrders("All", "");
 }
+
+// ==================== SUPPLIERS ====================
+export async function initAdminSuppliers(){
+  const sess = await requireRole("admin");
+  if (!sess) return;
+
+  await injectLayout();
+  wireLogout();
+
+  let allSuppliers = [];
+
+  async function renderSuppliers(filter){
+    filter = (filter || "").toLowerCase();
+    try {
+      allSuppliers = await API.getSuppliers();
+      const tbody = qs("#suppliersBody");
+      const noSuppliers = qs("#noSuppliers");
+
+      const filtered = filter ?
+        allSuppliers.filter(s =>
+          (s.supplier_name || "").toLowerCase().includes(filter) ||
+          (s.email || "").toLowerCase().includes(filter) ||
+          (s.phone || "").toLowerCase().includes(filter)
+        ) : allSuppliers;
+
+      if (!filtered.length) {
+        tbody.innerHTML = '';
+        noSuppliers.style.display = "block";
+      } else {
+        noSuppliers.style.display = "none";
+        tbody.innerHTML = filtered.map(s => {
+          return '<tr>' +
+            '<td><strong>#' + s.supplier_id + '</strong></td>' +
+            '<td><strong>' + escapeHtml(s.supplier_name) + '</strong></td>' +
+            '<td>' + escapeHtml(s.phone || '-') + '</td>' +
+            '<td>' + escapeHtml(s.email || '-') + '</td>' +
+            '<td>' + escapeHtml(s.address || '-') + '</td>' +
+            '<td>' +
+              '<button class="btn" data-editsup="' + s.supplier_id + '">Edit</button> ' +
+              '<button class="btn danger" data-delsup="' + s.supplier_id + '">Delete</button>' +
+            '</td>' +
+          '</tr>';
+        }).join("");
+
+        // Wire edit buttons
+        tbody.querySelectorAll("button[data-editsup]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const sup = allSuppliers.find(s => s.supplier_id === Number(btn.dataset.editsup));
+            if (sup) {
+              qs("#editSupplierId").value = sup.supplier_id;
+              qs("#editSupplierName").value = sup.supplier_name || "";
+              qs("#editSupplierPhone").value = sup.phone || "";
+              qs("#editSupplierEmail").value = sup.email || "";
+              qs("#editSupplierAddress").value = sup.address || "";
+              qs("#editSupplierModal").style.display = "flex";
+            }
+          });
+        });
+
+        // Wire delete buttons
+        tbody.querySelectorAll("button[data-delsup]").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Are you sure you want to delete this supplier?")) return;
+
+            try {
+              await API.deleteSupplier(Number(btn.dataset.delsup));
+              toast("Deleted", "Supplier removed.", "ok");
+              renderSuppliers(qs("#searchSuppliers")?.value || "");
+            } catch (e) {
+              toast("Error", e.message, "bad");
+            }
+          });
+        });
+      }
+    } catch (e) {
+      console.error("Suppliers error:", e);
+      toast("Error", "Failed to load suppliers", "bad");
+    }
+  }
+
+  // Add supplier form
+  const form = qs("#supplierForm");
+  if (form) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const data = {
+        supplier_name: qs("#sname").value.trim(),
+        phone: qs("#sphone").value.trim(),
+        email: qs("#semail").value.trim(),
+        address: qs("#saddress").value.trim()
+      };
+
+      if (!data.supplier_name) {
+        toast("Missing fields", "Supplier name is required.", "bad");
+        return;
+      }
+
+      try {
+        await API.createSupplier(data);
+        form.reset();
+        toast("Added", "Supplier created successfully.", "ok");
+        renderSuppliers("");
+      } catch (e) {
+        toast("Error", e.message, "bad");
+      }
+    });
+  }
+
+  // Edit supplier form
+  const editForm = qs("#editSupplierForm");
+  if (editForm) {
+    editForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const supplierId = Number(qs("#editSupplierId").value);
+      const data = {
+        supplier_name: qs("#editSupplierName").value.trim(),
+        phone: qs("#editSupplierPhone").value.trim(),
+        email: qs("#editSupplierEmail").value.trim(),
+        address: qs("#editSupplierAddress").value.trim()
+      };
+
+      if (!data.supplier_name) {
+        toast("Missing fields", "Supplier name is required.", "bad");
+        return;
+      }
+
+      try {
+        await API.updateSupplier(supplierId, data);
+        qs("#editSupplierModal").style.display = "none";
+        toast("Updated", "Supplier updated successfully.", "ok");
+        renderSuppliers(qs("#searchSuppliers")?.value || "");
+      } catch (e) {
+        toast("Error", e.message, "bad");
+      }
+    });
+  }
+
+  // Cancel edit
+  const cancelBtn = qs("#cancelSupplierEdit");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      qs("#editSupplierModal").style.display = "none";
+    });
+  }
+
+  // Search
+  qs("#searchSuppliers")?.addEventListener("input", (e) => {
+    renderSuppliers(e.target.value);
+  });
+
+  renderSuppliers("");
+}
+
 // ==================== PURCHASES ====================
 export async function initAdminPurchases(){
   const sess = await requireRole("admin");
@@ -533,8 +777,8 @@ export async function initAdminPurchases(){
   const who = qs("#who");
   if (who) who.textContent = sess.name;
 
+  const supplierSelect = qs('#supplierSelect');
   const variantSelect = qs('#variantSelect');
-  const supplierName = qs('#supplierName');
   const qty = qs('#qty');
   const unitCost = qs('#unitCost');
   const totalCost = qs('#totalCost');
@@ -547,6 +791,26 @@ export async function initAdminPurchases(){
     const u = Number(unitCost?.value || 0);
     const t = (q * u);
     if (totalCost) totalCost.value = isFinite(t) ? t.toFixed(2) : '0.00';
+  }
+
+  async function loadSuppliers(){
+    if (!supplierSelect) return;
+
+    try {
+      const suppliers = await API.getSuppliers();
+
+      supplierSelect.innerHTML = '<option value="">-- Select Supplier --</option>' +
+        suppliers.map(s => {
+          return `<option value="${s.supplier_id}">${escapeHtml(s.supplier_name)}</option>`;
+        }).join('');
+
+      if (!suppliers.length) {
+        supplierSelect.innerHTML = '<option value="">No suppliers - add one first</option>';
+      }
+    } catch (e) {
+      console.error('Suppliers error:', e);
+      toast('Error', 'Failed to load suppliers', 'bad');
+    }
   }
 
   async function loadVariants(){
@@ -631,12 +895,18 @@ export async function initAdminPurchases(){
     }
   }
 
+  async function loadAllData(){
+    await loadSuppliers();
+    await loadVariants();
+    await loadPurchases();
+  }
+
   // Wire events
   if (qty) qty.addEventListener('input', calcTotal);
   if (unitCost) unitCost.addEventListener('input', calcTotal);
 
-  const refreshVariants = qs('#refreshVariants');
-  if (refreshVariants) refreshVariants.addEventListener('click', loadVariants);
+  const refreshData = qs('#refreshData');
+  if (refreshData) refreshData.addEventListener('click', loadAllData);
 
   const refreshPurchases = qs('#refreshPurchases');
   if (refreshPurchases) refreshPurchases.addEventListener('click', loadPurchases);
@@ -646,18 +916,20 @@ export async function initAdminPurchases(){
     purchaseForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
+      const supplierId = Number(supplierSelect?.value);
+      if (!supplierId) {
+        toast('Missing', 'Please select a supplier', 'bad');
+        return;
+      }
+
       const payload = {
-        supplier_name: (supplierName?.value || '').trim(),
+        supplier_id: supplierId,
         variant_id: Number(variantSelect?.value),
         quantity: Number(qty?.value),
         unit_cost: Number(unitCost?.value),
         notes: (notes?.value || '').trim(),
       };
 
-      if (!payload.supplier_name) {
-        toast('Missing', 'Please enter supplier name', 'bad');
-        return;
-      }
       if (!payload.variant_id) {
         toast('Missing', 'Please choose an item', 'bad');
         return;
@@ -692,6 +964,5 @@ export async function initAdminPurchases(){
   }
 
   calcTotal();
-  await loadVariants();
-  await loadPurchases();
+  await loadAllData();
 }
